@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Feeds Service Stack
+
+
+Mappings:
+
+  LogMap:
+    PapertrailLog:
+      stage: "logs7.papertrailapp.com:23213"
+      test: "logs7.papertrailapp.com:16637"
+      prod: "logs7.papertrailapp.com:16747"
+
+  FunctionName:
+    GetNewFacesFunction:
+      test: test-get-new-faces-feeds
+      stage: stage-get-new-faces-feeds
+      prod: prod-get-new-faces-feeds
+    WarmUpFunction:
+      test: test-warm-up-feeds
+      stage: stage-warm-up-feeds
+      prod: prod-warm-up-feeds
+
+Parameters:
+  Env:
+    Type: String
+    Default: stage
+    AllowedValues:
+      - test
+      - stage
+      - prod
+    Description: Env name
+
+Globals:
+    Function:
+        Timeout: 300
+        MemorySize: 512
+        Runtime: go1.x
+        Environment:
+          Variables:
+            ENV: !Ref Env
+            PAPERTRAIL_LOG_ADDRESS: !FindInMap [LogMap, PapertrailLog, !Ref Env]
+            INTERNAL_AUTH_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, InternalGetUserIdFunctionExport] ]
+            COMMON_STREAM:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, CommonEventStreamExportName] ]
+            INTERNAL_GET_NEW_FACES_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, NewFacesFunctionExport] ]
+            INTERNAL_STREAM_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]
+            NEED_WARM_UP_LAMBDA_NAMES: !Join [ ",", [ !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]] ]
+        Tags:
+          Company: Ringoid
+          Service: feeds
+          Environment: !Ref Env
+
+Resources:
+
+  WarmUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, WarmUpFunction, !Ref Env]
+      Handler: warm_up
+      CodeUri: ./warmup-image.zip
+      Description: WarmUp feeds function
+      Policies:
+        - AWSLambdaFullAccess
+
+  ScheduledWarmUpFunctionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Scheduled WarmUp lambda function rule
+      ScheduleExpression: rate(8 minutes)
+      State: ENABLED
+      Name: !Join [ "-", [ !Ref Env, warm_up_feeds_function_rule] ]
+      Targets:
+        -
+          Arn:
+            Fn::GetAtt:
+              - WarmUpFunction
+              - Arn
+          Id: ScheduledWarmUpFunctionRuleId
+
+  PermissionForEventsToInvokeWarmUpFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WarmUpFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - ScheduledWarmUpFunctionRule
+          - Arn
+
+
+  GetNewFacesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]
+      Handler: get_new_faces
+      CodeUri: ./get_new_faces.zip
+      Description: Get New Faces feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+      Events:
+        StartEvent:
+          Type: Api
+          Properties:
+            Path: /get_new_faces
+            Method: get
