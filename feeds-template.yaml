@@ -52,6 +52,9 @@ Globals:
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]
+            DELIVERY_STREAM:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, DeliveryStreamExportName] ]
             NEED_WARM_UP_LAMBDA_NAMES: !Join [ ",", [ !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]] ]
         Tags:
           Company: Ringoid

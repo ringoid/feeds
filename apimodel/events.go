@@ -5,24 +5,26 @@ import (
 	"fmt"
 )
 
-type UserAskUploadPhotoLinkEvent struct {
-	UserId    string `json:"userId"`
-	Bucket    string `json:"bucket"`
-	PhotoKey  string `json:"photoKey"`
-	UnixTime  int64  `json:"unixTime"`
-	EventType string `json:"eventType"`
+type ProfileWasReturnToNewFacesEvent struct {
+	UserId              string   `json:"userId"`
+	TargetUserIds       []string `json:"targetUserIds"`
+	TimeToDeleteViewRel int64    `json:"timeToDelete"`
+	SeenProfilesNum     int      `json:"seenProfilesNum"`
+	UnixTime            int64    `json:"unixTime"`
+	EventType           string   `json:"eventType"`
 }
 
-func (event UserAskUploadPhotoLinkEvent) String() string {
+func (event ProfileWasReturnToNewFacesEvent) String() string {
 	return fmt.Sprintf("%#v", event)
 }
 
-func NewUserAskUploadLinkEvent(bucket, photoKey, userId string) *UserAskUploadPhotoLinkEvent {
-	return &UserAskUploadPhotoLinkEvent{
-		UserId:    userId,
-		Bucket:    bucket,
-		PhotoKey:  photoKey,
-		UnixTime:  time.Now().Unix(),
-		EventType: "IMAGE_USER_ASK_UPLOAD_PHOTO_LINK",
+func NewProfileWasReturnToNewFacesEvent(userId string, timeToDeleteViewRel int64, targetIds []string) ProfileWasReturnToNewFacesEvent {
+	return ProfileWasReturnToNewFacesEvent{
+		UserId:              userId,
+		TargetUserIds:       targetIds,
+		TimeToDeleteViewRel: timeToDeleteViewRel,
+		SeenProfilesNum:     len(targetIds),
+		UnixTime:            time.Now().Unix(),
+		EventType:           "FEEDS_NEW_FACES_SEEN_PROFILES",
 	}
 }

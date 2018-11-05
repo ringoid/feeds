@@ -13,6 +13,10 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-sdk-go/service/lambda"
+	"time"
+	"github.com/aws/aws-sdk-go/service/kinesis"
+	"strconv"
+	"github.com/aws/aws-sdk-go/service/firehose"
 )
 
 var anlogger *syslog.Logger
@@ -20,8 +24,15 @@ var internalAuthFunctionName string
 var getNewFacesFunctionName string
 var clientLambda *lambda.Lambda
 var commonStreamName string
+var awsKinesisClient *kinesis.Kinesis
+var deliveryStramName string
+var awsDeliveryStreamClient *firehose.Firehose
 
-const newFacesDefaultLimit = 10
+const (
+	newFacesDefaultLimit                   = 5
+	newFacesMaxLimit                       = 100
+	newFacesTimeToLiveLimitForViewRelInSec = 60 * 5
+)
 
 func init() {
 	var env string
@@ -68,7 +79,14 @@ func init() {
 		anlogger.Fatalf(nil, "lambda-initialization : get_new_faces.go : env can not be empty COMMON_STREAM")
 		os.Exit(1)
 	}
-	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : start with DELIVERY_STREAM = [%s]", commonStreamName)
+	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : start with COMMON_STREAM = [%s]", commonStreamName)
+
+	deliveryStramName, ok = os.LookupEnv("DELIVERY_STREAM")
+	if !ok {
+		anlogger.Fatalf(nil, "lambda-initialization : get_new_faces.go : env can not be empty DELIVERY_STREAM")
+		os.Exit(1)
+	}
+	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : start with DELIVERY_STREAM = [%s]", deliveryStramName)
 
 	awsSession, err = session.NewSession(aws.NewConfig().
 		WithRegion(apimodel.Region).WithMaxRetries(apimodel.MaxRetries).
@@ -80,6 +98,13 @@ func init() {
 
 	clientLambda = lambda.New(awsSession)
 	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : lambda client was successfully initialized")
+
+	awsKinesisClient = kinesis.New(awsSession)
+	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : kinesis client was successfully initialized")
+
+	awsDeliveryStreamClient = firehose.New(awsSession)
+	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : firehose client was successfully initialized")
+
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -99,6 +124,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	accessToken := request.QueryStringParameters["accessToken"]
 	resolution := request.QueryStringParameters["resolution"]
+	limit := newFacesDefaultLimit
+	limitStr := request.QueryStringParameters["limit"]
+	var err error
+	if len(limitStr) != 0 {
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			errStr = apimodel.WrongRequestParamsClientError
+			anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
+			return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		}
+	}
 
 	if !apimodel.AllowedPhotoResolution[resolution] {
 		errStr := apimodel.WrongRequestParamsClientError
@@ -113,11 +149,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	internalNewFaces, ok, errStr := getNewFaces(userId, lc)
+	internalNewFaces, ok, errStr := getNewFaces(userId, limit, lc)
 	if !ok {
 		anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
+
+	targetIds := make([]string, 0)
 
 	profiles := make([]apimodel.Profile, 0)
 	for _, each := range internalNewFaces {
@@ -133,8 +171,21 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			UserId: each.UserId,
 			Photos: photos,
 		})
+
+		targetIds = append(targetIds, each.UserId)
 	}
 	anlogger.Debugf(lc, "get_new_faces.go : prepare [%d] new faces profiles for userId [%s]", len(profiles), userId)
+
+	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
+	event := apimodel.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
+	ok, errStr = apimodel.SendCommonEvent(event, userId, commonStreamName, userId, awsKinesisClient, anlogger, lc)
+	if !ok {
+		errStr := apimodel.InternalServerError
+		anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
+
+	apimodel.SendAnalyticEvent(event, userId, deliveryStramName, awsDeliveryStreamClient, anlogger, lc)
 
 	resp := apimodel.GetNewFacesResp{}
 	resp.Profiles = profiles
@@ -148,12 +199,19 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
 
-func getNewFaces(userId string, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, bool, string) {
-	anlogger.Debugf(lc, "get_new_faces.go : get new faces for userId [%s]", userId)
+func getNewFaces(userId string, limit int, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, bool, string) {
+
+	if limit < 0 {
+		limit = newFacesDefaultLimit
+	} else if limit > newFacesMaxLimit {
+		limit = newFacesMaxLimit
+	}
+	anlogger.Debugf(lc, "get_new_faces.go : get new faces for userId [%s] with limit [%d]", userId, limit)
 
 	req := apimodel.InternalGetNewFacesReq{
-		UserId: userId,
-		Limit:  newFacesDefaultLimit,
+		UserId:
+		userId,
+		Limit: limit,
 	}
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -179,7 +237,7 @@ func getNewFaces(userId string, lc *lambdacontext.LambdaContext) ([]apimodel.Int
 		return nil, false, apimodel.InternalServerError
 	}
 
-	anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s], resp %v", userId, response)
+	anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s] with limit [%d], resp %v", userId, limit, response)
 	return response.NewFaces, true, ""
 }
 
