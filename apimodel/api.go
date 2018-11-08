@@ -67,9 +67,28 @@ type Photo struct {
 
 type GetNewFacesResp struct {
 	BaseResponse
-	Profiles []Profile `json:"profiles"`
+	WarmUpRequest bool      `json:"warmUpRequest"`
+	Profiles      []Profile `json:"profiles"`
 }
 
 func (resp GetNewFacesResp) String() string {
+	return fmt.Sprintf("%#v", resp)
+}
+
+type GetNewFacesFeedResp struct {
+	BaseResponse
+	Profiles      []Profile `json:"profiles"`
+}
+
+func (resp GetNewFacesFeedResp) String() string {
+	return fmt.Sprintf("%#v", resp)
+}
+
+type FacesWithUrlResp struct {
+	//contains userId_photoId like a key and photoUrl like a value
+	UserIdPhotoIdKeyUrlMap map[string]string `json:"urlPhotoMap"`
+}
+
+func (resp FacesWithUrlResp) String() string {
 	return fmt.Sprintf("%#v", resp)
 }
