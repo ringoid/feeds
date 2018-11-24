@@ -3,6 +3,7 @@ test-all: clean test-deploy
 prod-all: clean prod-deploy
 
 build:
+	go get -u github.com/ringoid/commons
 	@echo '--- Building get-new-faces-feeds function ---'
 	GOOS=linux go build lambda-get-new-faces/get_new_faces.go
 	@echo '--- Building warmup-image function ---'

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	basicLambda "github.com/aws/aws-lambda-go/lambda"
-	"../sys_log"
 	"../apimodel"
 	"github.com/aws/aws-sdk-go/aws"
 	"os"
@@ -17,9 +16,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"strconv"
 	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/ringoid/commons"
 )
 
-var anlogger *syslog.Logger
+var anlogger *commons.Logger
 var internalAuthFunctionName string
 var getNewFacesFunctionName string
 var clientLambda *lambda.Lambda
@@ -56,7 +56,7 @@ func init() {
 	}
 	fmt.Printf("lambda-initialization : get_new_faces.go : start with PAPERTRAIL_LOG_ADDRESS = [%s]\n", papertrailAddress)
 
-	anlogger, err = syslog.New(papertrailAddress, fmt.Sprintf("%s-%s", env, "get-new-faces"))
+	anlogger, err = commons.New(papertrailAddress, fmt.Sprintf("%s-%s", env, "get-new-faces-feed"))
 	if err != nil {
 		fmt.Errorf("lambda-initialization : get_new_faces.go : error during startup : %v\n", err)
 		os.Exit(1)
@@ -96,7 +96,7 @@ func init() {
 	anlogger.Debugf(nil, "lambda-initialization : get_new_faces.go : start with DELIVERY_STREAM = [%s]", deliveryStramName)
 
 	awsSession, err = session.NewSession(aws.NewConfig().
-		WithRegion(apimodel.Region).WithMaxRetries(apimodel.MaxRetries).
+		WithRegion(commons.Region).WithMaxRetries(commons.MaxRetries).
 		WithLogger(aws.LoggerFunc(func(args ...interface{}) { anlogger.AwsLog(args) })).WithLogLevel(aws.LogOff))
 	if err != nil {
 		anlogger.Fatalf(nil, "lambda-initialization : get_new_faces.go : error during initialization : %v", err)
@@ -119,11 +119,11 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	anlogger.Debugf(lc, "get_new_faces.go : start handle request %v", request)
 
-	if apimodel.IsItWarmUpRequest(request.Body, anlogger, lc) {
+	if commons.IsItWarmUpRequest(request.Body, anlogger, lc) {
 		return events.APIGatewayProxyResponse{}, nil
 	}
 
-	appVersion, isItAndroid, ok, errStr := apimodel.ParseAppVersionFromHeaders(request.Headers, anlogger, lc)
+	appVersion, isItAndroid, ok, errStr := commons.ParseAppVersionFromHeaders(request.Headers, anlogger, lc)
 	if !ok {
 		anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
@@ -137,20 +137,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if len(limitStr) != 0 {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			errStr = apimodel.WrongRequestParamsClientError
+			errStr = commons.WrongRequestParamsClientError
 			anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 			return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 		}
 	}
 
-	if !apimodel.AllowedPhotoResolution[resolution] {
-		errStr := apimodel.WrongRequestParamsClientError
+	if !commons.AllowedPhotoResolution[resolution] {
+		errStr := commons.WrongRequestParamsClientError
 		anlogger.Errorf(lc, "get_new_faces : resolution [%s] is not supported", resolution)
 		anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	userId, ok, _, errStr := apimodel.CallVerifyAccessToken(appVersion, isItAndroid, accessToken, internalAuthFunctionName, clientLambda, anlogger, lc)
+	userId, ok, _, errStr := commons.CallVerifyAccessToken(appVersion, isItAndroid, accessToken, internalAuthFunctionName, clientLambda, anlogger, lc)
 	if !ok {
 		anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
@@ -168,7 +168,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	for _, each := range internalNewFaces {
 		photos := make([]apimodel.Photo, 0)
 		for _, eachPhoto := range each.PhotoIds {
-			resolutionPhotoId, ok := apimodel.GetResolutionPhotoId(userId, eachPhoto, resolution, anlogger, lc)
+			resolutionPhotoId, ok := commons.GetResolutionPhotoId(userId, eachPhoto, resolution, anlogger, lc)
 			if ok {
 				photos = append(photos, apimodel.Photo{
 					PhotoId: resolutionPhotoId,
@@ -187,15 +187,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	resp.Profiles = profiles
 
 	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
-	event := apimodel.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
-	ok, errStr = apimodel.SendCommonEvent(event, userId, commonStreamName, userId, awsKinesisClient, anlogger, lc)
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
+	ok, errStr = commons.SendCommonEvent(event, userId, commonStreamName, userId, awsKinesisClient, anlogger, lc)
 	if !ok {
-		errStr := apimodel.InternalServerError
+		errStr := commons.InternalServerError
 		anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	apimodel.SendAnalyticEvent(event, userId, deliveryStramName, awsDeliveryStreamClient, anlogger, lc)
+	commons.SendAnalyticEvent(event, userId, deliveryStramName, awsDeliveryStreamClient, anlogger, lc)
 
 	//now enrich resp with photo uri
 	resp, ok, errStr = enrichRespWithImageUrl(resp, userId, lc)
@@ -210,8 +210,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	body, err := json.Marshal(feedResp)
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
-		anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, apimodel.InternalServerError)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: apimodel.InternalServerError}, nil
+		anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, commons.InternalServerError)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 	anlogger.Infof(lc, "get_new_faces.go : successfully return [%d] new faces profiles to userId [%s]", len(feedResp.Profiles), userId)
 	anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
@@ -227,25 +227,25 @@ func enrichRespWithImageUrl(sourceResp apimodel.GetNewFacesResp, userId string, 
 	jsonBody, err := json.Marshal(sourceResp)
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error marshaling source resp %s into json for userId [%s] : %v", sourceResp, userId, err)
-		return apimodel.GetNewFacesResp{}, false, apimodel.InternalServerError
+		return apimodel.GetNewFacesResp{}, false, commons.InternalServerError
 	}
 
 	resp, err := clientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(getNewImagesInternalFunctionName), Payload: jsonBody})
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", getNewImagesInternalFunctionName, jsonBody, userId, err)
-		return apimodel.GetNewFacesResp{}, false, apimodel.InternalServerError
+		return apimodel.GetNewFacesResp{}, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return apimodel.GetNewFacesResp{}, false, apimodel.InternalServerError
+		return apimodel.GetNewFacesResp{}, false, commons.InternalServerError
 	}
 
 	var response apimodel.FacesWithUrlResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return apimodel.GetNewFacesResp{}, false, apimodel.InternalServerError
+		return apimodel.GetNewFacesResp{}, false, commons.InternalServerError
 	}
 
 	anlogger.Debugf(lc, "get_new_faces.go : receive enriched with uri info from image service for userId [%s], map %v", userId, response)
@@ -324,25 +324,25 @@ func getNewFaces(userId string, limit int, lc *lambdacontext.LambdaContext) ([]a
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
-		return nil, false, apimodel.InternalServerError
+		return nil, false, commons.InternalServerError
 	}
 
 	resp, err := clientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(getNewFacesFunctionName), Payload: jsonBody})
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", getNewFacesFunctionName, jsonBody, userId, err)
-		return nil, false, apimodel.InternalServerError
+		return nil, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return nil, false, apimodel.InternalServerError
+		return nil, false, commons.InternalServerError
 	}
 
 	var response apimodel.InternalGetNewFacesResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return nil, false, apimodel.InternalServerError
+		return nil, false, commons.InternalServerError
 	}
 
 	if len(response.NewFaces) == 0 {

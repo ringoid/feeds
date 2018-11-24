@@ -2,36 +2,8 @@ package apimodel
 
 import (
 	"fmt"
+	"github.com/ringoid/commons"
 )
-
-type WarmUpRequest struct {
-	WarmUpRequest bool `json:"warmUpRequest"`
-}
-
-func (req WarmUpRequest) String() string {
-	return fmt.Sprintf("%#v", req)
-}
-
-type InternalGetUserIdReq struct {
-	WarmUpRequest bool   `json:"warmUpRequest"`
-	AccessToken   string `json:"accessToken"`
-	BuildNum      int    `json:"buildNum"`
-	IsItAndroid   bool   `json:"isItAndroid"`
-}
-
-func (req InternalGetUserIdReq) String() string {
-	return fmt.Sprintf("%#v", req)
-}
-
-type InternalGetUserIdResp struct {
-	BaseResponse
-	UserId         string `json:"userId"`
-	IsUserReported bool   `json:"isUserReported"`
-}
-
-func (resp InternalGetUserIdResp) String() string {
-	return fmt.Sprintf("%#v", resp)
-}
 
 type InternalGetNewFacesReq struct {
 	UserId string `json:"userId"`
@@ -66,7 +38,7 @@ type Photo struct {
 }
 
 type GetNewFacesResp struct {
-	BaseResponse
+	commons.BaseResponse
 	WarmUpRequest bool      `json:"warmUpRequest"`
 	Profiles      []Profile `json:"profiles"`
 }
@@ -76,8 +48,8 @@ func (resp GetNewFacesResp) String() string {
 }
 
 type GetNewFacesFeedResp struct {
-	BaseResponse
-	Profiles      []Profile `json:"profiles"`
+	commons.BaseResponse
+	Profiles []Profile `json:"profiles"`
 }
 
 func (resp GetNewFacesFeedResp) String() string {
