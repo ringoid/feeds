@@ -16,6 +16,10 @@ Mappings:
       test: test-get-new-faces-feeds
       stage: stage-get-new-faces-feeds
       prod: prod-get-new-faces-feeds
+    LMMFunction:
+      test: test-lmm-feeds
+      stage: stage-lmm-feeds
+      prod: prod-lmm-feeds
     WarmUpFunction:
       test: test-warm-up-feeds
       stage: stage-warm-up-feeds
@@ -49,6 +53,9 @@ Globals:
             INTERNAL_GET_NEW_FACES_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, NewFacesFunctionExport] ]
+            INTERNAL_LIKES_YOU_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, LikesYouFunctionExport] ]
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]
@@ -118,4 +125,21 @@ Resources:
           Type: Api
           Properties:
             Path: /get_new_faces
+            Method: get
+
+  LMMFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, LMMFunction, !Ref Env]
+      Handler: lmm
+      CodeUri: ./lmm.zip
+      Description: LLM feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+      Events:
+        StartEvent:
+          Type: Api
+          Properties:
+            Path: /get_lmm
             Method: get
