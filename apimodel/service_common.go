@@ -15,6 +15,7 @@ var Anlogger *commons.Logger
 var InternalAuthFunctionName string
 var GetNewFacesFunctionName string
 var LikesYouFunctionName string
+var MatchesFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
@@ -68,6 +69,11 @@ func InitLambdaVars(lambdaName string) {
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_LIKES_YOU_FUNCTION_NAME = [%s]", LikesYouFunctionName)
 
+	MatchesFunctionName, ok = os.LookupEnv("INTERNAL_MATCHES_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_MATCHES_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_MATCHES_FUNCTION_NAME = [%s]", MatchesFunctionName)
 
 	GetNewImagesInternalFunctionName, ok = os.LookupEnv("INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME")
 	if !ok {

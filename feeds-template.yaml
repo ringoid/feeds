@@ -56,6 +56,9 @@ Globals:
             INTERNAL_LIKES_YOU_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, LikesYouFunctionExport] ]
+            INTERNAL_MATCHES_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, MatchesFunctionExport] ]
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]

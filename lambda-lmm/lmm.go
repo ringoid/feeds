@@ -133,6 +133,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	feedResp := apimodel.LMMFeedResp{}
 	feedResp.LikesYouNewProfiles = make([]apimodel.Profile, 0)
 	feedResp.LikesYouOldProfiles = make([]apimodel.Profile, 0)
+	feedResp.MatchesNewProfiles = make([]apimodel.Profile, 0)
+	feedResp.MatchesOldProfiles = make([]apimodel.Profile, 0)
 
 	var commonWaitGroup sync.WaitGroup
 
@@ -148,18 +150,34 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.LikesYouFunctionName, &likesYouOldPart,
 		&commonWaitGroup, lc)
 
+	//matches (new part)
+	commonWaitGroup.Add(1)
+	matchesNewPart := InnerResult{}
+	go handleJob(userId, resolution, lastActionTimeInt, true, apimodel.MatchesFunctionName, &matchesNewPart,
+		&commonWaitGroup, lc)
+
+	//matches (old part)
+	commonWaitGroup.Add(1)
+	matchesOldPart := InnerResult{}
+	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.MatchesFunctionName, &matchesOldPart,
+		&commonWaitGroup, lc)
+
 	commonWaitGroup.Wait()
 
-	if !likesYouNewPart.ok || !likesYouOldPart.ok {
+	if !likesYouNewPart.ok || !likesYouOldPart.ok || !matchesNewPart.ok || !matchesOldPart.ok {
+		//todo:find real error
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, likesYouNewPart.errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: likesYouNewPart.errStr}, nil
 	}
 
-	if likesYouNewPart.repeatRequestAfterSec != 0 || likesYouOldPart.repeatRequestAfterSec != 0 {
+	if likesYouNewPart.repeatRequestAfterSec != 0 || likesYouOldPart.repeatRequestAfterSec != 0 ||
+		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 {
 		feedResp.RepeatRequestAfterSec = defaultRepeatTimeSec
 	} else {
 		feedResp.LikesYouNewProfiles = likesYouNewPart.profiles
 		feedResp.LikesYouOldProfiles = likesYouOldPart.profiles
+		feedResp.MatchesNewProfiles = matchesNewPart.profiles
+		feedResp.MatchesOldProfiles = matchesOldPart.profiles
 	}
 
 	body, err := json.Marshal(feedResp)
@@ -168,6 +186,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, commons.InternalServerError)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
+	//todo:think about analytics
 	//commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles to userId [%s]", len(feedResp.LikesYouNewProfiles), userId)
