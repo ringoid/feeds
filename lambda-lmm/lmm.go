@@ -180,6 +180,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		feedResp.MatchesOldProfiles = matchesOldPart.profiles
 	}
 
+	//to simplify client logic lets remove possible nil objects
+	if feedResp.LikesYouNewProfiles == nil{
+		feedResp.LikesYouNewProfiles = make([]apimodel.Profile,0)
+	}
+	if feedResp.LikesYouOldProfiles == nil{
+		feedResp.LikesYouOldProfiles= make([]apimodel.Profile,0)
+	}
+	if feedResp.MatchesNewProfiles == nil{
+		feedResp.MatchesNewProfiles = make([]apimodel.Profile,0)
+	}
+	if feedResp.MatchesOldProfiles == nil{
+		feedResp.MatchesOldProfiles= make([]apimodel.Profile,0)
+	}
+
 	body, err := json.Marshal(feedResp)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)

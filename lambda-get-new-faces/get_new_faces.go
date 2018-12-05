@@ -117,6 +117,12 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	feedResp := apimodel.GetNewFacesFeedResp{
 		Profiles: resp.Profiles,
 	}
+
+	//to simplify client logic lets remove possible nil objects
+	if feedResp.Profiles == nil {
+		feedResp.Profiles = make([]apimodel.Profile, 0)
+	}
+
 	body, err := json.Marshal(feedResp)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
