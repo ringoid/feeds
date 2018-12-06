@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 var Anlogger *commons.Logger
@@ -111,5 +112,25 @@ func InitLambdaVars(lambdaName string) {
 
 	AwsDeliveryStreamClient = firehose.New(awsSession)
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : firehose client was successfully initialized")
+}
 
+func MarkNewFacesDefaultSort(userId string, resp *GetNewFacesFeedResp, lc *lambdacontext.LambdaContext) *GetNewFacesFeedResp {
+	Anlogger.Debugf(lc, "service_common.go : mark new faces resp by default sort for userId [%s]", userId)
+	for index := range resp.Profiles {
+		resp.Profiles[index].DefaultSortingOrderPosition = index
+	}
+	Anlogger.Debugf(lc, "service_common.go : successfully mark new faces resp by default sort for userId [%s]", userId)
+	return resp
+}
+
+func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.LambdaContext) *LMMFeedResp {
+	Anlogger.Debugf(lc, "service_common.go : mark lmm resp by default sort for userId [%s]", userId)
+	for index := range resp.LikesYou {
+		resp.LikesYou[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Matches {
+		resp.Matches[index].DefaultSortingOrderPosition = index
+	}
+	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
+	return resp
 }

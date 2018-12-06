@@ -28,8 +28,10 @@ func (resp InternalGetNewFacesResp) String() string {
 }
 
 type Profile struct {
-	UserId string  `json:"userId"`
-	Photos []Photo `json:"photos"`
+	UserId                      string  `json:"userId"`
+	DefaultSortingOrderPosition int     `json:"defaultSortingOrderPosition"`
+	Photos                      []Photo `json:"photos"`
+	Unseen                      bool    `json:"unseen"`
 }
 
 type Photo struct {
@@ -93,10 +95,8 @@ func (resp InternalLMMResp) String() string {
 
 type LMMFeedResp struct {
 	commons.BaseResponse
-	LikesYouNewProfiles   []Profile `json:"likesYouNewProfiles"`
-	LikesYouOldProfiles   []Profile `json:"likesYouOldProfiles"`
-	MatchesNewProfiles    []Profile `json:"matchesNewProfiles"`
-	MatchesOldProfiles    []Profile `json:"matchesOldProfiles"`
+	LikesYou              []Profile `json:"likesYou"`
+	Matches               []Profile `json:"matches"`
 	RepeatRequestAfterSec int       `json:"repeatRequestAfterSec"`
 }
 

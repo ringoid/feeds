@@ -123,6 +123,9 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		feedResp.Profiles = make([]apimodel.Profile, 0)
 	}
 
+	//mark sorting
+	apimodel.MarkNewFacesDefaultSort(userId, &feedResp, lc)
+
 	body, err := json.Marshal(feedResp)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
@@ -132,6 +135,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return [%d] new faces profiles to userId [%s]", len(feedResp.Profiles), userId)
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
+}
+
+func markDefaultSort(resp *apimodel.GetNewFacesFeedResp) *apimodel.GetNewFacesFeedResp {
+	for index, eachP := range resp.Profiles {
+		eachP.DefaultSortingOrderPosition = index
+	}
+	return resp
 }
 
 func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (apimodel.ProfilesResp, bool, string) {

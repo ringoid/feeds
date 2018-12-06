@@ -59,6 +59,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int, requestNewPart 
 		profiles = append(profiles, apimodel.Profile{
 			UserId: each.UserId,
 			Photos: photos,
+			Unseen: requestNewPart,
 		})
 
 		targetIds = append(targetIds, each.UserId)
@@ -131,10 +132,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	//prepare response
 	feedResp := apimodel.LMMFeedResp{}
-	feedResp.LikesYouNewProfiles = make([]apimodel.Profile, 0)
-	feedResp.LikesYouOldProfiles = make([]apimodel.Profile, 0)
-	feedResp.MatchesNewProfiles = make([]apimodel.Profile, 0)
-	feedResp.MatchesOldProfiles = make([]apimodel.Profile, 0)
+	feedResp.LikesYou = make([]apimodel.Profile, 0)
+	feedResp.Matches = make([]apimodel.Profile, 0)
 
 	var commonWaitGroup sync.WaitGroup
 
@@ -174,25 +173,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 {
 		feedResp.RepeatRequestAfterSec = defaultRepeatTimeSec
 	} else {
-		feedResp.LikesYouNewProfiles = likesYouNewPart.profiles
-		feedResp.LikesYouOldProfiles = likesYouOldPart.profiles
-		feedResp.MatchesNewProfiles = matchesNewPart.profiles
-		feedResp.MatchesOldProfiles = matchesOldPart.profiles
+		feedResp.LikesYou = append(feedResp.LikesYou, likesYouNewPart.profiles...)
+		feedResp.LikesYou = append(feedResp.LikesYou, likesYouOldPart.profiles...)
+
+		feedResp.Matches = append(feedResp.Matches, matchesNewPart.profiles...)
+		feedResp.Matches = append(feedResp.Matches, matchesOldPart.profiles...)
 	}
 
-	//to simplify client logic lets remove possible nil objects
-	if feedResp.LikesYouNewProfiles == nil{
-		feedResp.LikesYouNewProfiles = make([]apimodel.Profile,0)
-	}
-	if feedResp.LikesYouOldProfiles == nil{
-		feedResp.LikesYouOldProfiles= make([]apimodel.Profile,0)
-	}
-	if feedResp.MatchesNewProfiles == nil{
-		feedResp.MatchesNewProfiles = make([]apimodel.Profile,0)
-	}
-	if feedResp.MatchesOldProfiles == nil{
-		feedResp.MatchesOldProfiles= make([]apimodel.Profile,0)
-	}
+	//mark sorting
+	apimodel.MarkLMMDefaultSort(userId, &feedResp, lc)
 
 	body, err := json.Marshal(feedResp)
 	if err != nil {
@@ -203,7 +192,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	//todo:think about analytics
 	//commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
-	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles to userId [%s]", len(feedResp.LikesYouNewProfiles), userId)
+	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles to userId [%s]", len(feedResp.LikesYou), userId)
+	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] matches profiles to userId [%s]", len(feedResp.Matches), userId)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
@@ -251,6 +241,8 @@ func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc 
 		//prepare Profile
 		targetProfile := apimodel.Profile{}
 		targetProfile.UserId = sourceUserId
+		targetProfile.Unseen = eachProfile.Unseen
+
 		targetPhotos := make([]apimodel.Photo, 0)
 		apimodel.Anlogger.Debugf(lc, "lmm.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
 		//now fill profile info
