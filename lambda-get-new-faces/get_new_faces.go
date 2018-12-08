@@ -96,17 +96,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	resp := apimodel.ProfilesResp{}
 	resp.Profiles = profiles
 
-	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
-	ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
-	if !ok {
-		errStr := commons.InternalServerError
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
-	}
-
-	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
-
 	//now enrich resp with photo uri
 	resp, ok, errStr = enrichRespWithImageUrl(resp, userId, lc)
 	if !ok {
@@ -123,7 +112,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		feedResp.Profiles = make([]apimodel.Profile, 0)
 	}
 
-	//mark sorting
 	apimodel.MarkNewFacesDefaultSort(userId, &feedResp, lc)
 
 	body, err := json.Marshal(feedResp)
@@ -132,16 +120,23 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, commons.InternalServerError)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
+
+	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
+
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
+	ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
+	if !ok {
+		errStr := commons.InternalServerError
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
+
+	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
+	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
+
 	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return [%d] new faces profiles to userId [%s]", len(feedResp.Profiles), userId)
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
-}
-
-func markDefaultSort(resp *apimodel.GetNewFacesFeedResp) *apimodel.GetNewFacesFeedResp {
-	for index, eachP := range resp.Profiles {
-		eachP.DefaultSortingOrderPosition = index
-	}
-	return resp
 }
 
 func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (apimodel.ProfilesResp, bool, string) {
@@ -187,6 +182,8 @@ func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc 
 		//prepare Profile
 		targetProfile := apimodel.Profile{}
 		targetProfile.UserId = sourceUserId
+		//it's new faces so always unseen
+		targetProfile.Unseen = true
 		targetPhotos := make([]apimodel.Photo, 0)
 		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
 		//now fill profile info
@@ -209,12 +206,7 @@ func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc 
 					"didn't find photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
 					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
 			}
-			//todo:delete, need for debug
-			apimodel.Anlogger.Debugf(lc, "get_new_faces.go : after checking photo with photoId [%s], len(targetPhotos)==%d", sourcePhotoId, len(targetPhotos))
 		}
-		//todo:delete, need for debug
-		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : after checking all photos for targetProfileId [%s], len(targetPhotos)==%d, len(targetProfile.Photos)==%d",
-			targetProfile.UserId, len(targetPhotos), len(targetProfile.Photos))
 
 		//now check should we put this profile in response
 		targetProfile.Photos = targetPhotos

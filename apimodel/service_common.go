@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 )
 
 var Anlogger *commons.Logger
@@ -23,6 +24,14 @@ var AwsKinesisClient *kinesis.Kinesis
 var DeliveryStramName string
 var AwsDeliveryStreamClient *firehose.Firehose
 var GetNewImagesInternalFunctionName string
+
+var BaseCloudWatchNamespace string
+var NewFaceProfilesReturnMetricName string
+var LikesYouProfilesReturnMetricName string
+var MatchProfilesReturnMetricName string
+var MessageProfilesReturnMetricName string
+
+var AwsCWClient *cloudwatch.CloudWatch
 
 func InitLambdaVars(lambdaName string) {
 	var env string
@@ -96,6 +105,36 @@ func InitLambdaVars(lambdaName string) {
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with DELIVERY_STREAM = [%s]", DeliveryStramName)
 
+	BaseCloudWatchNamespace, ok = os.LookupEnv("BASE_CLOUD_WATCH_NAMESPACE")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty BASE_CLOUD_WATCH_NAMESPACE")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with BASE_CLOUD_WATCH_NAMESPACE = [%s]", BaseCloudWatchNamespace)
+
+	NewFaceProfilesReturnMetricName, ok = os.LookupEnv("CLOUD_WATCH_NEW_FACES_RETURN")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUD_WATCH_NEW_FACES_RETURN")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUD_WATCH_NEW_FACES_RETURN = [%s]", NewFaceProfilesReturnMetricName)
+
+	LikesYouProfilesReturnMetricName, ok = os.LookupEnv("CLOUD_WATCH_LIKES_YOU_RETURN")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUD_WATCH_LIKES_YOU_RETURN")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUD_WATCH_LIKES_YOU_RETURN = [%s]", LikesYouProfilesReturnMetricName)
+
+	MatchProfilesReturnMetricName, ok = os.LookupEnv("CLOUD_WATCH_MATCHES_RETURN")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUD_WATCH_MATCHES_RETURN")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUD_WATCH_MATCHES_RETURN = [%s]", MatchProfilesReturnMetricName)
+
+	MessageProfilesReturnMetricName, ok = os.LookupEnv("CLOUD_WATCH_MESSAGES_RETURN")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUD_WATCH_MESSAGES_RETURN")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUD_WATCH_MESSAGES_RETURN = [%s]", MessageProfilesReturnMetricName)
+
 	awsSession, err = session.NewSession(aws.NewConfig().
 		WithRegion(commons.Region).WithMaxRetries(commons.MaxRetries).
 		WithLogger(aws.LoggerFunc(func(args ...interface{}) { Anlogger.AwsLog(args) })).WithLogLevel(aws.LogOff))
@@ -112,6 +151,9 @@ func InitLambdaVars(lambdaName string) {
 
 	AwsDeliveryStreamClient = firehose.New(awsSession)
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : firehose client was successfully initialized")
+
+	AwsCWClient = cloudwatch.New(awsSession)
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : cloudwatch client was successfully initialized")
 }
 
 func MarkNewFacesDefaultSort(userId string, resp *GetNewFacesFeedResp, lc *lambdacontext.LambdaContext) *GetNewFacesFeedResp {

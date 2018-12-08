@@ -30,8 +30,8 @@ func (resp InternalGetNewFacesResp) String() string {
 type Profile struct {
 	UserId                      string  `json:"userId"`
 	DefaultSortingOrderPosition int     `json:"defaultSortingOrderPosition"`
-	Photos                      []Photo `json:"photos"`
 	Unseen                      bool    `json:"unseen"`
+	Photos                      []Photo `json:"photos"`
 }
 
 type Photo struct {
@@ -99,6 +99,7 @@ type LMMFeedResp struct {
 	Matches               []Profile `json:"matches"`
 	RepeatRequestAfterSec int       `json:"repeatRequestAfterSec"`
 }
+
 
 func (resp LMMFeedResp) String() string {
 	return fmt.Sprintf("%#v", resp)

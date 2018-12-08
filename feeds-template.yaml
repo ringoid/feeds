@@ -35,6 +35,20 @@ Parameters:
       - prod
     Description: Env name
 
+  CloudWatchNewFaceProfilesReturnMetricName:
+    Type: String
+    Default: NewFaceProfilesReturn
+  CloudWatchLikesYouProfilesReturnMetricName:
+    Type: String
+    Default: LikesYouProfilesReturn
+  CloudWatchMatchProfilesReturnMetricName:
+    Type: String
+    Default: MatchProfilesReturn
+  CloudWatchMessageProfilesReturnMetricName:
+    Type: String
+    Default: MessageProfilesReturn
+
+
 Globals:
     Function:
         Timeout: 300
@@ -69,6 +83,11 @@ Globals:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalGetImagesFunctionExport] ]
             NEED_WARM_UP_LAMBDA_NAMES: !Join [ ",", [ !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]] ]
+            CLOUD_WATCH_MESSAGES_RETURN: !Ref CloudWatchMessageProfilesReturnMetricName
+            CLOUD_WATCH_MATCHES_RETURN: !Ref CloudWatchMatchProfilesReturnMetricName
+            CLOUD_WATCH_LIKES_YOU_RETURN: !Ref CloudWatchLikesYouProfilesReturnMetricName
+            CLOUD_WATCH_NEW_FACES_RETURN: !Ref CloudWatchNewFaceProfilesReturnMetricName
+            BASE_CLOUD_WATCH_NAMESPACE: !Join [ "-", [ !Ref Env, feeds, service] ]
         Tags:
           Company: Ringoid
           Service: feeds
@@ -123,6 +142,7 @@ Resources:
       Policies:
         - AWSLambdaFullAccess
         - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
       Events:
         StartEvent:
           Type: Api
@@ -140,6 +160,7 @@ Resources:
       Policies:
         - AWSLambdaFullAccess
         - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
       Events:
         StartEvent:
           Type: Api

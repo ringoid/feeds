@@ -189,8 +189,14 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, commons.InternalServerError)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
-	//todo:think about analytics
-	//commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
+
+	event := commons.NewProfileWasReturnToLMMEvent(userId, len(feedResp.LikesYou), len(feedResp.Matches), 0)
+	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
+
+	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
+	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MatchProfilesReturnMetricName, len(feedResp.Matches), apimodel.AwsCWClient, apimodel.Anlogger, lc)
+	//todo:insert len(messages)
+	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, 0, apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles to userId [%s]", len(feedResp.LikesYou), userId)
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] matches profiles to userId [%s]", len(feedResp.Matches), userId)
