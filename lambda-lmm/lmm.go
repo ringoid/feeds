@@ -95,6 +95,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	apimodel.Anlogger.Debugf(lc, "lmm.go : start handle request %v", request)
 
+	sourceIp := request.RequestContext.Identity.SourceIP
+
 	if commons.IsItWarmUpRequest(request.Body, apimodel.Anlogger, lc) {
 		return events.APIGatewayProxyResponse{}, nil
 	}
@@ -164,7 +166,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	commonWaitGroup.Wait()
 
 	if !likesYouNewPart.ok || !likesYouOldPart.ok || !matchesNewPart.ok || !matchesOldPart.ok {
-		//todo:find real error
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, likesYouNewPart.errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: likesYouNewPart.errStr}, nil
 	}
@@ -190,7 +191,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	event := commons.NewProfileWasReturnToLMMEvent(userId, len(feedResp.LikesYou), len(feedResp.Matches), 0)
+	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), 0)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
@@ -198,8 +199,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	//todo:insert len(messages)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, 0, apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
-	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles to userId [%s]", len(feedResp.LikesYou), userId)
-	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] matches profiles to userId [%s]", len(feedResp.Matches), userId)
+	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles, [%d] matches to userId [%s]", len(feedResp.LikesYou), len(feedResp.Matches), userId)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
@@ -271,12 +271,7 @@ func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc 
 					"didn't find photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
 					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
 			}
-			//todo:delete, need for debug
-			apimodel.Anlogger.Debugf(lc, "lmm.go : after checking photo with photoId [%s], len(targetPhotos)==%d", sourcePhotoId, len(targetPhotos))
 		}
-		//todo:delete, need for debug
-		apimodel.Anlogger.Debugf(lc, "lmm.go : after checking all photos for targetProfileId [%s], len(targetPhotos)==%d, len(targetProfile.Photos)==%d",
-			targetProfile.UserId, len(targetPhotos), len(targetProfile.Photos))
 
 		//now check should we put this profile in response
 		targetProfile.Photos = targetPhotos

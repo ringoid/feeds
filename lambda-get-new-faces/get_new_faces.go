@@ -29,6 +29,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : start handle request %v", request)
 
+	sourceIp := request.RequestContext.Identity.SourceIP
+
 	if commons.IsItWarmUpRequest(request.Body, apimodel.Anlogger, lc) {
 		return events.APIGatewayProxyResponse{}, nil
 	}
@@ -123,7 +125,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
 
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, timeToDeleteViewRel, targetIds)
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, timeToDeleteViewRel, targetIds)
 	ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
 	if !ok {
 		errStr := commons.InternalServerError
