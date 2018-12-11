@@ -27,43 +27,12 @@ func (resp InternalGetNewFacesResp) String() string {
 	return fmt.Sprintf("%#v", resp)
 }
 
-type Profile struct {
-	UserId                      string  `json:"userId"`
-	DefaultSortingOrderPosition int     `json:"defaultSortingOrderPosition"`
-	Unseen                      bool    `json:"unseen"`
-	Photos                      []Photo `json:"photos"`
-}
-
-type Photo struct {
-	PhotoId  string `json:"photoId"`
-	PhotoUri string `json:"photoUri"`
-}
-
-type ProfilesResp struct {
-	commons.BaseResponse
-	WarmUpRequest bool      `json:"warmUpRequest"`
-	Profiles      []Profile `json:"profiles"`
-}
-
-func (resp ProfilesResp) String() string {
-	return fmt.Sprintf("%#v", resp)
-}
-
 type GetNewFacesFeedResp struct {
 	commons.BaseResponse
-	Profiles []Profile `json:"profiles"`
+	Profiles []commons.Profile `json:"profiles"`
 }
 
 func (resp GetNewFacesFeedResp) String() string {
-	return fmt.Sprintf("%#v", resp)
-}
-
-type FacesWithUrlResp struct {
-	//contains userId_photoId like a key and photoUrl like a value
-	UserIdPhotoIdKeyUrlMap map[string]string `json:"urlPhotoMap"`
-}
-
-func (resp FacesWithUrlResp) String() string {
 	return fmt.Sprintf("%#v", resp)
 }
 
@@ -95,11 +64,10 @@ func (resp InternalLMMResp) String() string {
 
 type LMMFeedResp struct {
 	commons.BaseResponse
-	LikesYou              []Profile `json:"likesYou"`
-	Matches               []Profile `json:"matches"`
-	RepeatRequestAfterSec int       `json:"repeatRequestAfterSec"`
+	LikesYou              []commons.Profile `json:"likesYou"`
+	Matches               []commons.Profile `json:"matches"`
+	RepeatRequestAfterSec int               `json:"repeatRequestAfterSec"`
 }
-
 
 func (resp LMMFeedResp) String() string {
 	return fmt.Sprintf("%#v", resp)

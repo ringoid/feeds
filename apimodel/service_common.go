@@ -94,14 +94,12 @@ func InitLambdaVars(lambdaName string) {
 	CommonStreamName, ok = os.LookupEnv("COMMON_STREAM")
 	if !ok {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty COMMON_STREAM")
-		os.Exit(1)
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with COMMON_STREAM = [%s]", CommonStreamName)
 
 	DeliveryStreamName, ok = os.LookupEnv("DELIVERY_STREAM")
 	if !ok {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty DELIVERY_STREAM")
-		os.Exit(1)
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with DELIVERY_STREAM = [%s]", DeliveryStreamName)
 

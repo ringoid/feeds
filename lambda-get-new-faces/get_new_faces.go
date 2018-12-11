@@ -76,18 +76,18 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	targetIds := make([]string, 0)
 
-	profiles := make([]apimodel.Profile, 0)
+	profiles := make([]commons.Profile, 0)
 	for _, each := range internalNewFaces {
-		photos := make([]apimodel.Photo, 0)
+		photos := make([]commons.Photo, 0)
 		for _, eachPhoto := range each.PhotoIds {
 			resolutionPhotoId, ok := commons.GetResolutionPhotoId(userId, eachPhoto, resolution, apimodel.Anlogger, lc)
 			if ok {
-				photos = append(photos, apimodel.Photo{
+				photos = append(photos, commons.Photo{
 					PhotoId: resolutionPhotoId,
 				})
 			}
 		}
-		profiles = append(profiles, apimodel.Profile{
+		profiles = append(profiles, commons.Profile{
 			UserId: each.UserId,
 			Photos: photos,
 		})
@@ -95,7 +95,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		targetIds = append(targetIds, each.UserId)
 	}
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : prepare [%d] new faces profiles for userId [%s]", len(profiles), userId)
-	resp := apimodel.ProfilesResp{}
+	resp := commons.ProfilesResp{}
 	resp.Profiles = profiles
 
 	//now enrich resp with photo uri
@@ -111,7 +111,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	//to simplify client logic lets remove possible nil objects
 	if feedResp.Profiles == nil {
-		feedResp.Profiles = make([]apimodel.Profile, 0)
+		feedResp.Profiles = make([]commons.Profile, 0)
 	}
 
 	apimodel.MarkNewFacesDefaultSort(userId, &feedResp, lc)
@@ -141,52 +141,52 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
 
-func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (apimodel.ProfilesResp, bool, string) {
+func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (commons.ProfilesResp, bool, string) {
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : enrich response %v with image uri for userId [%s]", sourceResp, userId)
 	if len(sourceResp.Profiles) == 0 {
-		return apimodel.ProfilesResp{}, true, ""
+		return commons.ProfilesResp{}, true, ""
 	}
 
 	jsonBody, err := json.Marshal(sourceResp)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling source resp %s into json for userId [%s] : %v", sourceResp, userId, err)
-		return apimodel.ProfilesResp{}, false, commons.InternalServerError
+		return commons.ProfilesResp{}, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewImagesInternalFunctionName), Payload: jsonBody})
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewImagesInternalFunctionName, jsonBody, userId, err)
-		return apimodel.ProfilesResp{}, false, commons.InternalServerError
+		return commons.ProfilesResp{}, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return apimodel.ProfilesResp{}, false, commons.InternalServerError
+		return commons.ProfilesResp{}, false, commons.InternalServerError
 	}
 
-	var response apimodel.FacesWithUrlResp
+	var response commons.FacesWithUrlResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return apimodel.ProfilesResp{}, false, commons.InternalServerError
+		return commons.ProfilesResp{}, false, commons.InternalServerError
 	}
 
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : receive enriched with uri info from image service for userId [%s], map %v", userId, response)
 
 	if len(response.UserIdPhotoIdKeyUrlMap) == 0 {
 		apimodel.Anlogger.Warnf(lc, "get_new_faces.go : receive 0 image urls for userId [%s]", userId)
-		return apimodel.ProfilesResp{}, true, ""
+		return commons.ProfilesResp{}, true, ""
 	}
 
-	targetProfiles := make([]apimodel.Profile, 0)
+	targetProfiles := make([]commons.Profile, 0)
 	for _, eachProfile := range sourceResp.Profiles {
 		sourceUserId := eachProfile.UserId
 		//prepare Profile
-		targetProfile := apimodel.Profile{}
+		targetProfile := commons.Profile{}
 		targetProfile.UserId = sourceUserId
 		//it's new faces so always unseen
 		targetProfile.Unseen = true
-		targetPhotos := make([]apimodel.Photo, 0)
+		targetPhotos := make([]commons.Photo, 0)
 		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
 		//now fill profile info
 		for _, eachPhoto := range eachProfile.Photos {
@@ -199,7 +199,7 @@ func enrichRespWithImageUrl(sourceResp apimodel.ProfilesResp, userId string, lc 
 					"found photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
 					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
 				//it means that we have photo uri in response from image service
-				targetPhotos = append(targetPhotos, apimodel.Photo{
+				targetPhotos = append(targetPhotos, commons.Photo{
 					PhotoId:  sourcePhotoId,
 					PhotoUri: targetPhotoUri,
 				})
