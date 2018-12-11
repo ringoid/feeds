@@ -133,7 +133,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStramName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
+	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
 	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return [%d] new faces profiles to userId [%s]", len(feedResp.Profiles), userId)

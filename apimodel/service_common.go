@@ -21,7 +21,7 @@ var MatchesFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
-var DeliveryStramName string
+var DeliveryStreamName string
 var AwsDeliveryStreamClient *firehose.Firehose
 var GetNewImagesInternalFunctionName string
 
@@ -98,12 +98,12 @@ func InitLambdaVars(lambdaName string) {
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with COMMON_STREAM = [%s]", CommonStreamName)
 
-	DeliveryStramName, ok = os.LookupEnv("DELIVERY_STREAM")
+	DeliveryStreamName, ok = os.LookupEnv("DELIVERY_STREAM")
 	if !ok {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty DELIVERY_STREAM")
 		os.Exit(1)
 	}
-	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with DELIVERY_STREAM = [%s]", DeliveryStramName)
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with DELIVERY_STREAM = [%s]", DeliveryStreamName)
 
 	BaseCloudWatchNamespace, ok = os.LookupEnv("BASE_CLOUD_WATCH_NAMESPACE")
 	if !ok {
