@@ -57,9 +57,10 @@ func handleJob(userId, resolution string, lastActionTimeInt int, requestNewPart 
 			}
 		}
 		profiles = append(profiles, commons.Profile{
-			UserId: each.UserId,
-			Photos: photos,
-			Unseen: requestNewPart,
+			UserId:   each.UserId,
+			Photos:   photos,
+			Unseen:   requestNewPart,
+			Messages: make([]commons.Message, 0),
 		})
 
 		targetIds = append(targetIds, each.UserId)
@@ -75,6 +76,17 @@ func handleJob(userId, resolution string, lastActionTimeInt int, requestNewPart 
 		innerResult.ok = ok
 		innerResult.errStr = errStr
 		return
+	}
+
+	//only for messages
+	if functionName == apimodel.MessagesFunctionName {
+		enrichProfiles, ok, errStr := enrichWithMessages(resp.Profiles, userId, lc)
+		if !ok {
+			innerResult.ok = ok
+			innerResult.errStr = errStr
+			return
+		}
+		resp.Profiles = enrichProfiles
 	}
 
 	innerResult.ok = true
@@ -136,6 +148,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	feedResp := apimodel.LMMFeedResp{}
 	feedResp.LikesYou = make([]commons.Profile, 0)
 	feedResp.Matches = make([]commons.Profile, 0)
+	feedResp.Messages = make([]commons.Profile, 0)
 
 	var commonWaitGroup sync.WaitGroup
 
@@ -163,15 +176,24 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.MatchesFunctionName, &matchesOldPart,
 		&commonWaitGroup, lc)
 
+	//messages
+	commonWaitGroup.Add(1)
+	messagesPart := InnerResult{}
+	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.MessagesFunctionName, &messagesPart,
+		&commonWaitGroup, lc)
+
 	commonWaitGroup.Wait()
 
-	if !likesYouNewPart.ok || !likesYouOldPart.ok || !matchesNewPart.ok || !matchesOldPart.ok {
+	if !likesYouNewPart.ok || !likesYouOldPart.ok ||
+		!matchesNewPart.ok || !matchesOldPart.ok ||
+		!messagesPart.ok {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, likesYouNewPart.errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: likesYouNewPart.errStr}, nil
 	}
 
 	if likesYouNewPart.repeatRequestAfterSec != 0 || likesYouOldPart.repeatRequestAfterSec != 0 ||
-		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 {
+		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 ||
+		messagesPart.repeatRequestAfterSec != 0 {
 		feedResp.RepeatRequestAfterSec = defaultRepeatTimeSec
 	} else {
 		feedResp.LikesYou = append(feedResp.LikesYou, likesYouNewPart.profiles...)
@@ -179,6 +201,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 		feedResp.Matches = append(feedResp.Matches, matchesNewPart.profiles...)
 		feedResp.Matches = append(feedResp.Matches, matchesOldPart.profiles...)
+
+		feedResp.Messages = append(feedResp.Messages, messagesPart.profiles...)
 	}
 
 	//mark sorting
@@ -196,16 +220,63 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MatchProfilesReturnMetricName, len(feedResp.Matches), apimodel.AwsCWClient, apimodel.Anlogger, lc)
-	//todo:insert len(messages)
-	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, 0, apimodel.AwsCWClient, apimodel.Anlogger, lc)
+	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, len(feedResp.Messages), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles, [%d] matches to userId [%s]", len(feedResp.LikesYou), len(feedResp.Matches), userId)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
 
+func enrichWithMessages(profiles []commons.Profile, userId string, lc *lambdacontext.LambdaContext) ([]commons.Profile, bool, string) {
+	apimodel.Anlogger.Debugf(lc, "lmm.go : enrich message's response with actual message list for userId [%s]", userId)
+	if len(profiles) == 0 {
+		return profiles, true, ""
+	}
+
+	internalReq := commons.InternalGetMessagesReq{
+		SourceUserId:  userId,
+		TargetUserIds: make([]string, 0),
+	}
+	for _, each := range profiles {
+		internalReq.TargetUserIds = append(internalReq.TargetUserIds, each.UserId)
+	}
+
+	jsonBody, err := json.Marshal(internalReq)
+	if err != nil {
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling source request %s into json for userId [%s] : %v", internalReq, userId, err)
+		return profiles, false, commons.InternalServerError
+	}
+
+	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.MessageContentFunctionName), Payload: jsonBody})
+	if err != nil {
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.MessageContentFunctionName, jsonBody, userId, err)
+		return profiles, false, commons.InternalServerError
+	}
+
+	if *resp.StatusCode != 200 {
+		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
+		return profiles, false, commons.InternalServerError
+	}
+
+	var response commons.InternalGetMessagesResp
+	err = json.Unmarshal(resp.Payload, &response)
+	if err != nil {
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
+		return profiles, false, commons.InternalServerError
+	}
+
+	for index, each := range profiles {
+		if msgs, ok := response.ConversationsMap[each.UserId]; ok {
+			profiles[index].Messages = msgs
+		}
+	}
+
+	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully enrich message's response with actual message list for userId [%s]", userId)
+	return profiles, true, ""
+}
+
 func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (commons.ProfilesResp, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "lmm.go : enrich response %v with image uri for userId [%s]", sourceResp, userId)
+	apimodel.Anlogger.Debugf(lc, "lmm.go : enrich response with image uri for userId [%s]", userId)
 	if len(sourceResp.Profiles) == 0 {
 		return commons.ProfilesResp{}, true, ""
 	}
@@ -248,6 +319,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 		targetProfile := commons.Profile{}
 		targetProfile.UserId = sourceUserId
 		targetProfile.Unseen = eachProfile.Unseen
+		targetProfile.Messages = eachProfile.Messages
 
 		targetPhotos := make([]commons.Photo, 0)
 		apimodel.Anlogger.Debugf(lc, "lmm.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)

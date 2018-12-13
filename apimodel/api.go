@@ -66,6 +66,7 @@ type LMMFeedResp struct {
 	commons.BaseResponse
 	LikesYou              []commons.Profile `json:"likesYou"`
 	Matches               []commons.Profile `json:"matches"`
+	Messages              []commons.Profile `json:"messages"`
 	RepeatRequestAfterSec int               `json:"repeatRequestAfterSec"`
 }
 
