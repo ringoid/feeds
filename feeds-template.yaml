@@ -101,6 +101,23 @@ Globals:
 
 Resources:
 
+  FeedsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Ref AWS::StackName
+      StageName: Prod
+
+  APIBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    DependsOn: FeedsApiProdStage
+    Properties:
+      BasePath: feeds
+      DomainName:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, APIDomainNameExport] ]
+      RestApiId: !Ref FeedsApi
+      Stage: Prod
+
   WarmUpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -155,6 +172,7 @@ Resources:
           Properties:
             Path: /get_new_faces
             Method: get
+            RestApiId: !Ref FeedsApi
 
   LMMFunction:
     Type: AWS::Serverless::Function
@@ -173,3 +191,4 @@ Resources:
           Properties:
             Path: /get_lmm
             Method: get
+            RestApiId: !Ref FeedsApi
