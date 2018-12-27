@@ -185,6 +185,9 @@ func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.Lamb
 	for index := range resp.Matches {
 		resp.Matches[index].DefaultSortingOrderPosition = index
 	}
+	for index := range resp.Messages {
+		resp.Messages[index].DefaultSortingOrderPosition = index
+	}
 	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
 	return resp
 }
