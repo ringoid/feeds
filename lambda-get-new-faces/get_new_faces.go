@@ -126,12 +126,12 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
 
 	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, timeToDeleteViewRel, targetIds)
-	ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
-	if !ok {
-		errStr := commons.InternalServerError
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
-	}
+	//ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
+	//if !ok {
+	//	errStr := commons.InternalServerError
+	//	apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+	//	return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	//}
 
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
