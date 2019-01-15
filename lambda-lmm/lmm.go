@@ -119,9 +119,16 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	accessToken := request.QueryStringParameters["accessToken"]
-	resolution := request.QueryStringParameters["resolution"]
-	lastActionTimeStr := request.QueryStringParameters["lastActionTime"]
+	accessToken, okA := request.QueryStringParameters["accessToken"]
+	resolution, okR := request.QueryStringParameters["resolution"]
+	lastActionTimeStr, okL := request.QueryStringParameters["lastActionTime"]
+
+	if !okA || !okR || !okL {
+		errStr = commons.WrongRequestParamsClientError
+		apimodel.Anlogger.Errorf(lc, "lmm.go : okA [%v], okR [%v] and okL [%v]", okA, okR, okL)
+		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
 
 	if !commons.AllowedPhotoResolution[resolution] {
 		errStr := commons.WrongRequestParamsClientError

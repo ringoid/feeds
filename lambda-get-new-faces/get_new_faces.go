@@ -41,8 +41,14 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	accessToken := request.QueryStringParameters["accessToken"]
-	resolution := request.QueryStringParameters["resolution"]
+	accessToken, okA := request.QueryStringParameters["accessToken"]
+	resolution, okR := request.QueryStringParameters["resolution"]
+	if !okA || !okR {
+		errStr = commons.WrongRequestParamsClientError
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
+
 	limit := newFacesDefaultLimit
 	limitStr := request.QueryStringParameters["limit"]
 	var err error
