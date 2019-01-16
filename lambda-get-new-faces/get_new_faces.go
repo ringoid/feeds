@@ -43,8 +43,11 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	accessToken, okA := request.QueryStringParameters["accessToken"]
 	resolution, okR := request.QueryStringParameters["resolution"]
-	if !okA || !okR {
+	lastActionTimeStr, okL := request.QueryStringParameters["lastActionTime"]
+
+	if !okA || !okR || !okL {
 		errStr = commons.WrongRequestParamsClientError
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : okA [%v], okR [%v] and okL [%v]", okA, okR, okL)
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
@@ -68,16 +71,30 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
+	lastActionTimeInt, err := strconv.Atoi(lastActionTimeStr)
+	if err != nil {
+		errStr := commons.WrongRequestParamsClientError
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
+
 	userId, ok, _, errStr := commons.CallVerifyAccessToken(appVersion, isItAndroid, accessToken, apimodel.InternalAuthFunctionName, apimodel.ClientLambda, apimodel.Anlogger, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	internalNewFaces, ok, errStr := getNewFaces(userId, limit, lc)
+	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+	}
+
+	feedResp := apimodel.GetNewFacesFeedResp{}
+
+	if repeatRequestAfter != 0 {
+		feedResp.RepeatRequestAfterSec = repeatRequestAfter
 	}
 
 	targetIds := make([]string, 0)
@@ -111,9 +128,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	feedResp := apimodel.GetNewFacesFeedResp{
-		Profiles: resp.Profiles,
-	}
+	feedResp.Profiles = resp.Profiles
 
 	//to simplify client logic lets remove possible nil objects
 	if feedResp.Profiles == nil {
@@ -131,7 +146,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
 
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, timeToDeleteViewRel, targetIds)
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, timeToDeleteViewRel, targetIds, feedResp.RepeatRequestAfterSec)
 	//ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
 	//if !ok {
 	//	errStr := commons.InternalServerError
@@ -233,7 +248,8 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 	return sourceResp, true, ""
 }
 
-func getNewFaces(userId string, limit int, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, bool, string) {
+//response, repeat request after sec, ok and error string
+func getNewFaces(userId string, limit, lastActionTime int, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
@@ -243,32 +259,38 @@ func getNewFaces(userId string, limit int, lc *lambdacontext.LambdaContext) ([]a
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : get new faces for userId [%s] with limit [%d]", userId, limit)
 
 	req := apimodel.InternalGetNewFacesReq{
-		UserId:
-		userId,
-		Limit: limit,
+		UserId:         userId,
+		Limit:          limit,
+		LastActionTime: lastActionTime,
 	}
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
-		return nil, false, commons.InternalServerError
+		return nil, 0, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewFacesFunctionName), Payload: jsonBody})
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewFacesFunctionName, jsonBody, userId, err)
-		return nil, false, commons.InternalServerError
+		return nil, 0, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return nil, false, commons.InternalServerError
+		return nil, 0, false, commons.InternalServerError
 	}
 
 	var response apimodel.InternalGetNewFacesResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return nil, false, commons.InternalServerError
+		return nil, 0, false, commons.InternalServerError
+	}
+
+	if lastActionTime > response.LastActionTime {
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
+			lastActionTime, response.LastActionTime, userId, response.LastActionTime-lastActionTime)
+		return nil, apimodel.DefaultRepeatTimeSec, true, ""
 	}
 
 	if len(response.NewFaces) == 0 {
@@ -276,7 +298,7 @@ func getNewFaces(userId string, limit int, lc *lambdacontext.LambdaContext) ([]a
 	}
 
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s] with limit [%d], resp %v", userId, limit, response)
-	return response.NewFaces, true, ""
+	return response.NewFaces, 0, true, ""
 }
 
 func main() {

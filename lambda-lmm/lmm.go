@@ -14,10 +14,6 @@ import (
 	"sync"
 )
 
-const (
-	defaultRepeatTimeSec = 2
-)
-
 func init() {
 	apimodel.InitLambdaVars("lmm-feed")
 }
@@ -38,7 +34,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int, requestNewPart 
 			lastActionTimeInt, llmResult.LastActionTime, userId, llmResult.LastActionTime-lastActionTimeInt)
 
 		innerResult.ok = true
-		innerResult.repeatRequestAfterSec = defaultRepeatTimeSec
+		innerResult.repeatRequestAfterSec = apimodel.DefaultRepeatTimeSec
 
 		return
 	}
@@ -201,7 +197,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if likesYouNewPart.repeatRequestAfterSec != 0 || likesYouOldPart.repeatRequestAfterSec != 0 ||
 		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 ||
 		messagesPart.repeatRequestAfterSec != 0 {
-		feedResp.RepeatRequestAfterSec = defaultRepeatTimeSec
+		feedResp.RepeatRequestAfterSec = apimodel.DefaultRepeatTimeSec
 	} else {
 		feedResp.LikesYou = append(feedResp.LikesYou, likesYouNewPart.profiles...)
 		feedResp.LikesYou = append(feedResp.LikesYou, likesYouOldPart.profiles...)
@@ -222,7 +218,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), 0)
+	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfterSec)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)

@@ -5,9 +5,14 @@ import (
 	"github.com/ringoid/commons"
 )
 
+const (
+	DefaultRepeatTimeSec = 2
+)
+
 type InternalGetNewFacesReq struct {
-	UserId string `json:"userId"`
-	Limit  int    `json:"limit"`
+	UserId         string `json:"userId"`
+	Limit          int    `json:"limit"`
+	LastActionTime int    `json:"requestedLastActionTime"`
 }
 
 func (req InternalGetNewFacesReq) String() string {
@@ -15,7 +20,8 @@ func (req InternalGetNewFacesReq) String() string {
 }
 
 type InternalGetNewFacesResp struct {
-	NewFaces []InternalNewFace `json:"newFaces"`
+	NewFaces       []InternalNewFace `json:"newFaces"`
+	LastActionTime int               `json:"lastActionTime"`
 }
 
 type InternalNewFace struct {
@@ -29,7 +35,8 @@ func (resp InternalGetNewFacesResp) String() string {
 
 type GetNewFacesFeedResp struct {
 	commons.BaseResponse
-	Profiles []commons.Profile `json:"profiles"`
+	Profiles              []commons.Profile `json:"profiles"`
+	RepeatRequestAfterSec int               `json:"repeatRequestAfterSec"`
 }
 
 func (resp GetNewFacesFeedResp) String() string {
