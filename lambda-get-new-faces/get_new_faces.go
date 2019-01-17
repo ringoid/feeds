@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-sdk-go/service/lambda"
-	"time"
 	"strconv"
 	"github.com/ringoid/commons"
 )
@@ -144,16 +143,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	timeToDeleteViewRel := time.Now().Unix() + newFacesTimeToLiveLimitForViewRelInSec
-
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, timeToDeleteViewRel, targetIds, feedResp.RepeatRequestAfterSec)
-	//ok, errStr = commons.SendCommonEvent(event, userId, apimodel.CommonStreamName, userId, apimodel.AwsKinesisClient, apimodel.Anlogger, lc)
-	//if !ok {
-	//	errStr := commons.InternalServerError
-	//	apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-	//	return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
-	//}
-
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfterSec)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
