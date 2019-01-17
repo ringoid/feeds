@@ -12,7 +12,7 @@ const (
 type InternalGetNewFacesReq struct {
 	UserId         string `json:"userId"`
 	Limit          int    `json:"limit"`
-	LastActionTime int    `json:"requestedLastActionTime"`
+	LastActionTime int64  `json:"requestedLastActionTime"`
 }
 
 func (req InternalGetNewFacesReq) String() string {
@@ -21,7 +21,7 @@ func (req InternalGetNewFacesReq) String() string {
 
 type InternalGetNewFacesResp struct {
 	NewFaces       []InternalNewFace `json:"newFaces"`
-	LastActionTime int               `json:"lastActionTime"`
+	LastActionTime int64             `json:"lastActionTime"`
 }
 
 type InternalNewFace struct {
@@ -48,7 +48,7 @@ func (resp GetNewFacesFeedResp) String() string {
 type InternalLMMReq struct {
 	UserId                  string `json:"userId"`
 	RequestNewPart          bool   `json:"requestNewPart"`
-	RequestedLastActionTime int    `json:"requestedLastActionTime"`
+	RequestedLastActionTime int64  `json:"requestedLastActionTime"`
 }
 
 func (req InternalLMMReq) String() string {
@@ -57,7 +57,7 @@ func (req InternalLMMReq) String() string {
 
 type InternalLMMResp struct {
 	Profiles       []InternalProfiles `json:"profiles"`
-	LastActionTime int                `json:"lastActionTime"`
+	LastActionTime int64              `json:"lastActionTime"`
 }
 
 type InternalProfiles struct {

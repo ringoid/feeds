@@ -18,7 +18,7 @@ func init() {
 	apimodel.InitLambdaVars("lmm-feed")
 }
 
-func handleJob(userId, resolution string, lastActionTimeInt int, requestNewPart bool, functionName string, innerResult *InnerResult,
+func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPart bool, functionName string, innerResult *InnerResult,
 	wg *sync.WaitGroup, lc *lambdacontext.LambdaContext) {
 	defer wg.Done()
 
@@ -133,7 +133,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	lastActionTimeInt, err := strconv.Atoi(lastActionTimeStr)
+	lastActionTimeInt64, err := strconv.ParseInt(lastActionTimeStr, 10, 64)
 	if err != nil {
 		errStr := commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "lmm.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
@@ -158,31 +158,31 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	//likes you (new part)
 	commonWaitGroup.Add(1)
 	likesYouNewPart := InnerResult{}
-	go handleJob(userId, resolution, lastActionTimeInt, true, apimodel.LikesYouFunctionName, &likesYouNewPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.LikesYouFunctionName, &likesYouNewPart,
 		&commonWaitGroup, lc)
 
 	//likes you (old part)
 	commonWaitGroup.Add(1)
 	likesYouOldPart := InnerResult{}
-	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.LikesYouFunctionName, &likesYouOldPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.LikesYouFunctionName, &likesYouOldPart,
 		&commonWaitGroup, lc)
 
 	//matches (new part)
 	commonWaitGroup.Add(1)
 	matchesNewPart := InnerResult{}
-	go handleJob(userId, resolution, lastActionTimeInt, true, apimodel.MatchesFunctionName, &matchesNewPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.MatchesFunctionName, &matchesNewPart,
 		&commonWaitGroup, lc)
 
 	//matches (old part)
 	commonWaitGroup.Add(1)
 	matchesOldPart := InnerResult{}
-	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.MatchesFunctionName, &matchesOldPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MatchesFunctionName, &matchesOldPart,
 		&commonWaitGroup, lc)
 
 	//messages
 	commonWaitGroup.Add(1)
 	messagesPart := InnerResult{}
-	go handleJob(userId, resolution, lastActionTimeInt, false, apimodel.MessagesFunctionName, &messagesPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MessagesFunctionName, &messagesPart,
 		&commonWaitGroup, lc)
 
 	commonWaitGroup.Wait()
@@ -365,7 +365,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 	return sourceResp, true, ""
 }
 
-func llm(userId, functionName string, requestNewPart bool, lastActionTime int, lc *lambdacontext.LambdaContext) (apimodel.InternalLMMResp, bool, string) {
+func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, lc *lambdacontext.LambdaContext) (apimodel.InternalLMMResp, bool, string) {
 
 	apimodel.Anlogger.Debugf(lc, "lmm.go : get likes you for userId [%s]", userId)
 

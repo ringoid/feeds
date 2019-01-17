@@ -70,7 +70,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	lastActionTimeInt, err := strconv.Atoi(lastActionTimeStr)
+	lastActionTimeInt64, err := strconv.ParseInt(lastActionTimeStr, 10, 64)
 	if err != nil {
 		errStr := commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
@@ -84,7 +84,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
 	}
 
-	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt, lc)
+	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
@@ -239,7 +239,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 }
 
 //response, repeat request after sec, ok and error string
-func getNewFaces(userId string, limit, lastActionTime int, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int, bool, string) {
+func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
