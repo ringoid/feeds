@@ -367,7 +367,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 
 func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, lc *lambdacontext.LambdaContext) (apimodel.InternalLMMResp, bool, string) {
 
-	apimodel.Anlogger.Debugf(lc, "lmm.go : get likes you for userId [%s]", userId)
+	apimodel.Anlogger.Debugf(lc, "lmm.go : get llm (function name %s, request new part %v) you for userId [%s]", functionName, requestNewPart, userId)
 
 	req := apimodel.InternalLMMReq{
 		UserId:                  userId,
@@ -376,33 +376,39 @@ func llm(userId, functionName string, requestNewPart bool, lastActionTime int64,
 	}
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling req %s into json for userId [%s] (function name %s, request new part %v) : %v",
+			req, userId, functionName, requestNewPart, err)
 		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: jsonBody})
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] : %v", functionName, jsonBody, userId, err)
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] (equest new part %v) : %v",
+			functionName, jsonBody, userId, requestNewPart, err)
 		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
+		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] (function name %s, request new part %v)",
+			*resp.StatusCode, string(resp.Payload), jsonBody, userId, functionName, requestNewPart)
 		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	var response apimodel.InternalLMMResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
+		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] (function name %s, request new part %v) : %v",
+			string(resp.Payload), userId, functionName, requestNewPart, err)
 		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	if len(response.Profiles) == 0 {
-		apimodel.Anlogger.Warnf(lc, "lmm.go : got 0 profiles from relationships storage for userId [%s]", userId)
+		apimodel.Anlogger.Warnf(lc, "lmm.go : got 0 profiles from relationships storage for userId [%s] (function name %s, request new part %v)",
+			userId, functionName, requestNewPart)
 	}
 
-	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully got new faces for userId [%s], resp %v", userId, response)
+	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully got profiles for userId [%s] (function name %s, request new part %v), resp %v",
+		userId, functionName, requestNewPart, response)
 	return response, true, ""
 }
 

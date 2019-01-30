@@ -198,7 +198,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 		//it's new faces so always unseen
 		targetProfile.Unseen = true
 		targetPhotos := make([]commons.Photo, 0)
-		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
+		//apimodel.Anlogger.Debugf(lc, "get_new_faces.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
 		//now fill profile info
 		for _, eachPhoto := range eachProfile.Photos {
 			sourcePhotoId := eachPhoto.PhotoId
@@ -206,9 +206,10 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 			//construct key for map which we receive from images service
 			targetMapKey := sourceUserId + "_" + sourcePhotoId
 			if targetPhotoUri, ok := response.UserIdPhotoIdKeyUrlMap[targetMapKey]; ok {
-				apimodel.Anlogger.Debugf(lc, "get_new_faces.go : "+
-					"found photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
-					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
+				//apimodel.Anlogger.Debugf(lc, "get_new_faces.go : "+
+				//	"found photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
+				//	targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
+
 				//it means that we have photo uri in response from image service
 				targetPhotos = append(targetPhotos, commons.Photo{
 					PhotoId:  sourcePhotoId,
