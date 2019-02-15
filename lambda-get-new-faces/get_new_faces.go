@@ -64,10 +64,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	if !commons.AllowedPhotoResolution[resolution] {
-		errStr := commons.WrongRequestParamsClientError
-		apimodel.Anlogger.Errorf(lc, "get_new_faces : resolution [%s] is not supported", resolution)
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		apimodel.Anlogger.Warnf(lc, "get_new_faces.go : resolution [%s] is not supported, so use [%s] resolution", resolution, commons.BiggestDefaultPhotoResolution)
+		resolution = commons.BiggestDefaultPhotoResolution
 	}
 
 	lastActionTimeInt64, err := strconv.ParseInt(lastActionTimeStr, 10, 64)
