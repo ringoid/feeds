@@ -34,7 +34,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			lastActionTimeInt, llmResult.LastActionTime, userId, llmResult.LastActionTime-lastActionTimeInt)
 
 		innerResult.ok = true
-		innerResult.repeatRequestAfterSec = apimodel.DefaultRepeatTimeSec
+		innerResult.repeatRequestAfter = apimodel.DefaultRepeatTimeSec
 
 		return
 	}
@@ -92,10 +92,10 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 }
 
 type InnerResult struct {
-	ok                    bool
-	errStr                string
-	repeatRequestAfterSec int
-	profiles              []commons.Profile
+	ok                 bool
+	errStr             string
+	repeatRequestAfter int64
+	profiles           []commons.Profile
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -192,10 +192,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: likesYouNewPart.errStr}, nil
 	}
 
-	if likesYouNewPart.repeatRequestAfterSec != 0 || likesYouOldPart.repeatRequestAfterSec != 0 ||
-		matchesNewPart.repeatRequestAfterSec != 0 || matchesOldPart.repeatRequestAfterSec != 0 ||
-		messagesPart.repeatRequestAfterSec != 0 {
-		feedResp.RepeatRequestAfterSec = apimodel.DefaultRepeatTimeSec
+	if likesYouNewPart.repeatRequestAfter != 0 || likesYouOldPart.repeatRequestAfter != 0 ||
+		matchesNewPart.repeatRequestAfter != 0 || matchesOldPart.repeatRequestAfter != 0 ||
+		messagesPart.repeatRequestAfter != 0 {
+		feedResp.RepeatRequestAfter = apimodel.DefaultRepeatTimeSec
 	} else {
 		feedResp.LikesYou = append(feedResp.LikesYou, likesYouNewPart.profiles...)
 		feedResp.LikesYou = append(feedResp.LikesYou, likesYouOldPart.profiles...)
@@ -216,7 +216,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfterSec)
+	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)

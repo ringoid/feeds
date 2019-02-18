@@ -91,7 +91,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	feedResp := apimodel.GetNewFacesFeedResp{}
 
 	if repeatRequestAfter != 0 {
-		feedResp.RepeatRequestAfterSec = repeatRequestAfter
+		feedResp.RepeatRequestAfter = repeatRequestAfter
 	}
 
 	targetIds := make([]string, 0)
@@ -141,7 +141,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfterSec)
+	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
@@ -238,7 +238,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 }
 
 //response, repeat request after sec, ok and error string
-func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int, bool, string) {
+func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int64, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
