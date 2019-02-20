@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	DefaultRepeatTimeSec = int64(2000)
+	DefaultRepeatTimeSec = int64(800)
 )
 
 type InternalGetNewFacesReq struct {
