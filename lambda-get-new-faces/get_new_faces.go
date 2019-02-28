@@ -238,7 +238,7 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 }
 
 //response, repeat request after sec, ok and error string
-func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]apimodel.InternalNewFace, int64, bool, string) {
+func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]commons.InternalNewFace, int64, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
@@ -247,7 +247,7 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 	}
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : get new faces for userId [%s] with limit [%d]", userId, limit)
 
-	req := apimodel.InternalGetNewFacesReq{
+	req := commons.InternalGetNewFacesReq{
 		UserId:         userId,
 		Limit:          limit,
 		LastActionTime: lastActionTime,
@@ -269,7 +269,7 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 		return nil, 0, false, commons.InternalServerError
 	}
 
-	var response apimodel.InternalGetNewFacesResp
+	var response commons.InternalGetNewFacesResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)

@@ -18,7 +18,7 @@ func init() {
 	apimodel.InitLambdaVars("lmm-feed")
 }
 
-func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPart bool, functionName string, innerResult *InnerResult,
+func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPart bool, functionName string, innerResult *InnerLmmResult,
 	wg *sync.WaitGroup, lc *lambdacontext.LambdaContext) {
 	defer wg.Done()
 
@@ -91,7 +91,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 	return
 }
 
-type InnerResult struct {
+type InnerLmmResult struct {
 	ok                 bool
 	errStr             string
 	repeatRequestAfter int64
@@ -155,31 +155,31 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	//likes you (new part)
 	commonWaitGroup.Add(1)
-	likesYouNewPart := InnerResult{}
+	likesYouNewPart := InnerLmmResult{}
 	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.LikesYouFunctionName, &likesYouNewPart,
 		&commonWaitGroup, lc)
 
 	//likes you (old part)
 	commonWaitGroup.Add(1)
-	likesYouOldPart := InnerResult{}
+	likesYouOldPart := InnerLmmResult{}
 	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.LikesYouFunctionName, &likesYouOldPart,
 		&commonWaitGroup, lc)
 
 	//matches (new part)
 	commonWaitGroup.Add(1)
-	matchesNewPart := InnerResult{}
+	matchesNewPart := InnerLmmResult{}
 	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.MatchesFunctionName, &matchesNewPart,
 		&commonWaitGroup, lc)
 
 	//matches (old part)
 	commonWaitGroup.Add(1)
-	matchesOldPart := InnerResult{}
+	matchesOldPart := InnerLmmResult{}
 	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MatchesFunctionName, &matchesOldPart,
 		&commonWaitGroup, lc)
 
 	//messages
 	commonWaitGroup.Add(1)
-	messagesPart := InnerResult{}
+	messagesPart := InnerLmmResult{}
 	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MessagesFunctionName, &messagesPart,
 		&commonWaitGroup, lc)
 
@@ -363,11 +363,11 @@ func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *
 	return sourceResp, true, ""
 }
 
-func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, lc *lambdacontext.LambdaContext) (apimodel.InternalLMMResp, bool, string) {
+func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, lc *lambdacontext.LambdaContext) (commons.InternalLMMResp, bool, string) {
 
 	apimodel.Anlogger.Debugf(lc, "lmm.go : get llm (function name %s, request new part %v) you for userId [%s]", functionName, requestNewPart, userId)
 
-	req := apimodel.InternalLMMReq{
+	req := commons.InternalLMMReq{
 		UserId:                  userId,
 		RequestNewPart:          requestNewPart,
 		RequestedLastActionTime: lastActionTime,
@@ -376,28 +376,28 @@ func llm(userId, functionName string, requestNewPart bool, lastActionTime int64,
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling req %s into json for userId [%s] (function name %s, request new part %v) : %v",
 			req, userId, functionName, requestNewPart, err)
-		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
+		return commons.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: jsonBody})
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] (equest new part %v) : %v",
 			functionName, jsonBody, userId, requestNewPart, err)
-		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
+		return commons.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] (function name %s, request new part %v)",
 			*resp.StatusCode, string(resp.Payload), jsonBody, userId, functionName, requestNewPart)
-		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
+		return commons.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
-	var response apimodel.InternalLMMResp
+	var response commons.InternalLMMResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] (function name %s, request new part %v) : %v",
 			string(resp.Payload), userId, functionName, requestNewPart, err)
-		return apimodel.InternalLMMResp{}, false, commons.InternalServerError
+		return commons.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
 	if len(response.Profiles) == 0 {
