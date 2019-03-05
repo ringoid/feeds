@@ -93,12 +93,6 @@ func InitLambdaVars(lambdaName string) {
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_MESSAGES_FUNCTION_NAME = [%s]", MessagesFunctionName)
 
-	MessageContentFunctionName, ok = os.LookupEnv("INTERNAL_GET_MESSAGES_CONTENT_FUNCTION_NAME")
-	if !ok {
-		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_MESSAGES_CONTENT_FUNCTION_NAME")
-	}
-	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_GET_MESSAGES_CONTENT_FUNCTION_NAME = [%s]", MessageContentFunctionName)
-
 	GetNewImagesInternalFunctionName, ok = os.LookupEnv("INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME")
 	if !ok {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME")

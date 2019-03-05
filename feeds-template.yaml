@@ -85,9 +85,6 @@ Globals:
             INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalGetImagesFunctionExport] ]
-            INTERNAL_GET_MESSAGES_CONTENT_FUNCTION_NAME:
-              Fn::ImportValue:
-                !Join [ "-", [ !Ref Env, InternalGetMessagesFunctionExport] ]
             NEED_WARM_UP_LAMBDA_NAMES: !Join [ ",", [ !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]] ]
             CLOUD_WATCH_MESSAGES_RETURN: !Ref CloudWatchMessageProfilesReturnMetricName
             CLOUD_WATCH_MATCHES_RETURN: !Ref CloudWatchMatchProfilesReturnMetricName

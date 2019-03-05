@@ -52,11 +52,15 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 				})
 			}
 		}
+		messages := make([]commons.Message, 0)
+		for _, eachMessage := range each.Messages {
+			messages = append(messages, eachMessage)
+		}
 		profiles = append(profiles, commons.Profile{
 			UserId:   each.UserId,
 			Photos:   photos,
 			Unseen:   requestNewPart,
-			Messages: make([]commons.Message, 0),
+			Messages: messages,
 		})
 
 		targetIds = append(targetIds, each.UserId)
@@ -75,15 +79,15 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 	}
 
 	//only for messages
-	if functionName == apimodel.MessagesFunctionName {
-		enrichProfiles, ok, errStr := enrichWithMessages(resp.Profiles, userId, lc)
-		if !ok {
-			innerResult.ok = ok
-			innerResult.errStr = errStr
-			return
-		}
-		resp.Profiles = enrichProfiles
-	}
+	//if functionName == apimodel.MessagesFunctionName {
+	//	enrichProfiles, ok, errStr := enrichWithMessages(resp.Profiles, userId, lc)
+	//	if !ok {
+	//		innerResult.ok = ok
+	//		innerResult.errStr = errStr
+	//		return
+	//	}
+	//	resp.Profiles = enrichProfiles
+	//}
 
 	innerResult.ok = true
 	innerResult.profiles = resp.Profiles
