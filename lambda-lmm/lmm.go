@@ -227,7 +227,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MatchProfilesReturnMetricName, len(feedResp.Matches), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, len(feedResp.Messages), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
-	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles, [%d] matches to userId [%s]", len(feedResp.LikesYou), len(feedResp.Matches), userId)
+	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return [%d] likes you profiles, [%d] matches and [%d] messages to userId [%s]", len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), userId)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
