@@ -277,7 +277,7 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 	}
 
 	if lastActionTime > response.LastActionTime {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
+		apimodel.Anlogger.Infof(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
 			lastActionTime, response.LastActionTime, userId, response.LastActionTime-lastActionTime)
 		return nil, apimodel.DefaultRepeatTimeSec, true, ""
 	}
