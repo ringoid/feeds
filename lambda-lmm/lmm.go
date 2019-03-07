@@ -404,11 +404,6 @@ func llm(userId, functionName string, requestNewPart bool, lastActionTime int64,
 		return commons.InternalLMMResp{}, false, commons.InternalServerError
 	}
 
-	if len(response.Profiles) == 0 {
-		apimodel.Anlogger.Warnf(lc, "lmm.go : got 0 profiles from relationships storage for userId [%s] (function name %s, request new part %v)",
-			userId, functionName, requestNewPart)
-	}
-
 	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully got profiles for userId [%s] (function name %s, request new part %v), resp %v",
 		userId, functionName, requestNewPart, response)
 	return response, true, ""

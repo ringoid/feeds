@@ -282,10 +282,6 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 		return nil, apimodel.DefaultRepeatTimeSec, true, ""
 	}
 
-	if len(response.NewFaces) == 0 {
-		apimodel.Anlogger.Warnf(lc, "get_new_faces.go : got 0 profiles from relationships storage for userId [%s] with limit [%d]", userId, limit)
-	}
-
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s] with limit [%d], resp %v", userId, limit, response)
 	return response.NewFaces, 0, true, ""
 }
