@@ -123,6 +123,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	resolution, okR := request.QueryStringParameters["resolution"]
 	lastActionTimeStr, okL := request.QueryStringParameters["lastActionTime"]
 
+	source, okS := request.QueryStringParameters["source"]
+	if okS {
+		if _, ok := commons.FeedNames[source]; !ok && source != "profile" {
+			errStr = commons.WrongRequestParamsClientError
+			apimodel.Anlogger.Errorf(lc, "lmm.go : source contains unsupported value [%s]", source)
+			return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		}
+	}
+
 	if !okA || !okR || !okL {
 		errStr = commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "lmm.go : okA [%v], okR [%v] and okL [%v]", okA, okR, okL)
@@ -220,7 +229,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
 	}
 
-	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfter)
+	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, source, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
