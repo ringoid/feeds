@@ -30,7 +30,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 	}
 
 	if lastActionTimeInt > llmResult.LastActionTime {
-		apimodel.Anlogger.Warnf(lc, "lmm.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
+		apimodel.Anlogger.Infof(lc, "lmm.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
 			lastActionTimeInt, llmResult.LastActionTime, userId, llmResult.LastActionTime-lastActionTimeInt)
 
 		innerResult.ok = true
