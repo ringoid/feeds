@@ -145,7 +145,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	lastActionTimeInt64, err := strconv.ParseInt(lastActionTimeStr, 10, 64)
-	if err != nil {
+	if err != nil || lastActionTimeInt64 < 0 {
 		errStr := commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "lmm.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
 		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
