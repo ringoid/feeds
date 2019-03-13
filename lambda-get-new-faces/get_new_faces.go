@@ -145,7 +145,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 
-	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return [%d] new faces profiles to userId [%s]", len(feedResp.Profiles), userId)
+	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId)
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
@@ -277,7 +277,7 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 	}
 
 	if lastActionTime > response.LastActionTime {
-		apimodel.Anlogger.Infof(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
+		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
 			lastActionTime, response.LastActionTime, userId, response.LastActionTime-lastActionTime)
 		return nil, apimodel.DefaultRepeatTimeSec, true, ""
 	}

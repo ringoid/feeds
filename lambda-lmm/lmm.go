@@ -32,7 +32,8 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 	if lastActionTimeInt > llmResult.LastActionTime {
 		innerResult.ok = true
 		innerResult.repeatRequestAfter = apimodel.DefaultRepeatTimeSec
-
+		apimodel.Anlogger.Debugf(lc, "lmm.go : (%s) requested lastAction time [%v] > actual last actionTime [%v], diff [%v]",
+			functionName, lastActionTimeInt, llmResult.LastActionTime, llmResult.LastActionTime-lastActionTimeInt)
 		return
 	}
 
@@ -100,6 +101,8 @@ type InnerLmmResult struct {
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	startTime := commons.UnixTimeInMillis()
+
 	lc, _ := lambdacontext.FromContext(ctx)
 
 	apimodel.Anlogger.Debugf(lc, "lmm.go : start handle request %v", request)
@@ -233,8 +236,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MatchProfilesReturnMetricName, len(feedResp.Matches), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, len(feedResp.Messages), apimodel.AwsCWClient, apimodel.Anlogger, lc)
-
-	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return repeat request after [%v], [%d] likes you profiles, [%d] matches and [%d] messages to userId [%s]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), userId)
+	finishTime := commons.UnixTimeInMillis()
+	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return repeat request after [%v], [%d] likes you profiles, [%d] matches and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), userId, finishTime-startTime)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
 }
