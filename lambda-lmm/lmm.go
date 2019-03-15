@@ -12,6 +12,7 @@ import (
 	"github.com/ringoid/commons"
 	"strconv"
 	"sync"
+	"strings"
 )
 
 func init() {
@@ -100,23 +101,27 @@ type InnerLmmResult struct {
 	profiles           []commons.Profile
 }
 
-func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
 	startTime := commons.UnixTimeInMillis()
 
 	lc, _ := lambdacontext.FromContext(ctx)
 
-	apimodel.Anlogger.Debugf(lc, "lmm.go : start handle request %v", request)
-
-	sourceIp := request.RequestContext.Identity.SourceIP
-
-	if commons.IsItWarmUpRequest(request.Body, apimodel.Anlogger, lc) {
-		return events.APIGatewayProxyResponse{}, nil
+	userAgent := request.Headers["user-agent"]
+	if strings.HasPrefix(userAgent, "ELB-HealthChecker") {
+		return commons.NewServiceResponse("{}"), nil
 	}
+
+	if request.HTTPMethod != "GET" {
+		return commons.NewWrongHttpMethodServiceResponse(), nil
+	}
+	sourceIp := request.Headers["x-forwarded-for"]
+
+	apimodel.Anlogger.Debugf(lc, "lmm.go : start handle request %v", request)
 
 	appVersion, isItAndroid, ok, errStr := commons.ParseAppVersionFromHeaders(request.Headers, apimodel.Anlogger, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	accessToken, okA := request.QueryStringParameters["accessToken"]
@@ -128,7 +133,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		if _, ok := commons.FeedNames[source]; !ok && source != "profile" {
 			errStr = commons.WrongRequestParamsClientError
 			apimodel.Anlogger.Errorf(lc, "lmm.go : source contains unsupported value [%s]", source)
-			return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+			return commons.NewServiceResponse(errStr), nil
 		}
 	}
 
@@ -136,7 +141,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		errStr = commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "lmm.go : okA [%v], okR [%v] and okL [%v]", okA, okR, okL)
 		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	if !commons.AllowedPhotoResolution[resolution] {
@@ -149,13 +154,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		errStr := commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "lmm.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
 		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	userId, ok, _, errStr := commons.CallVerifyAccessToken(appVersion, isItAndroid, accessToken, apimodel.InternalAuthFunctionName, apimodel.ClientLambda, apimodel.Anlogger, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	//prepare response
@@ -202,7 +207,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		!matchesNewPart.ok || !matchesOldPart.ok ||
 		!messagesPart.ok {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, likesYouNewPart.errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: likesYouNewPart.errStr}, nil
+		return commons.NewServiceResponse(likesYouNewPart.errStr), nil
 	}
 
 	if likesYouNewPart.repeatRequestAfter != 0 || likesYouOldPart.repeatRequestAfter != 0 ||
@@ -227,7 +232,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "lmm.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
 		apimodel.Anlogger.Errorf(lc, "lmm.go : userId [%s], return %s to client", userId, commons.InternalServerError)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
+		return commons.NewServiceResponse(commons.InternalServerError), nil
 	}
 
 	event := commons.NewProfileWasReturnToLMMEvent(userId, sourceIp, source, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), feedResp.RepeatRequestAfter)
@@ -239,7 +244,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	finishTime := commons.UnixTimeInMillis()
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return repeat request after [%v], [%d] likes you profiles, [%d] matches and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), userId, finishTime-startTime)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
-	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
+	return commons.NewServiceResponse(string(body)), nil
 }
 
 func enrichWithMessages(profiles []commons.Profile, userId string, lc *lambdacontext.LambdaContext) ([]commons.Profile, bool, string) {

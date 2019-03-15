@@ -16,14 +16,19 @@ Mappings:
       test: test-get-new-faces-feeds
       stage: stage-get-new-faces-feeds
       prod: prod-get-new-faces-feeds
+    GetNewFacesFunctionTargetGroup:
+      test: test-get-new-faces-feeds-tg
+      stage: stage-get-new-faces-feeds-tg
+      prod: prod-get-new-faces-feeds-tg
+
     LMMFunction:
       test: test-lmm-feeds
       stage: stage-lmm-feeds
       prod: prod-lmm-feeds
-    WarmUpFunction:
-      test: test-warm-up-feeds
-      stage: stage-warm-up-feeds
-      prod: prod-warm-up-feeds
+    LMMFunctionTargetGroup:
+      test: test-lmm-feeds-tg
+      stage: stage-lmm-feeds-tg
+      prod: prod-lmm-feeds-tg
 
 Parameters:
   Env:
@@ -85,7 +90,6 @@ Globals:
             INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalGetImagesFunctionExport] ]
-            NEED_WARM_UP_LAMBDA_NAMES: !Join [ ",", [ !FindInMap [FunctionName, GetNewFacesFunction, !Ref Env]] ]
             CLOUD_WATCH_MESSAGES_RETURN: !Ref CloudWatchMessageProfilesReturnMetricName
             CLOUD_WATCH_MATCHES_RETURN: !Ref CloudWatchMatchProfilesReturnMetricName
             CLOUD_WATCH_LIKES_YOU_RETURN: !Ref CloudWatchLikesYouProfilesReturnMetricName
@@ -98,60 +102,6 @@ Globals:
 
 Resources:
 
-  FeedsApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: !Ref AWS::StackName
-      StageName: Prod
-
-  APIBasePathMapping:
-    Type: AWS::ApiGateway::BasePathMapping
-    DependsOn: FeedsApiProdStage
-    Properties:
-      BasePath: feeds
-      DomainName:
-        Fn::ImportValue:
-          !Join [ "-", [ !Ref Env, APIDomainNameExport] ]
-      RestApiId: !Ref FeedsApi
-      Stage: Prod
-
-  WarmUpFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !FindInMap [FunctionName, WarmUpFunction, !Ref Env]
-      Handler: warm_up
-      CodeUri: ./warmup-image.zip
-      Description: WarmUp feeds function
-      Policies:
-        - AWSLambdaFullAccess
-
-  ScheduledWarmUpFunctionRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: Scheduled WarmUp lambda function rule
-      ScheduleExpression: rate(8 minutes)
-      State: ENABLED
-      Name: !Join [ "-", [ !Ref Env, warm_up_feeds_function_rule] ]
-      Targets:
-        -
-          Arn:
-            Fn::GetAtt:
-              - WarmUpFunction
-              - Arn
-          Id: ScheduledWarmUpFunctionRuleId
-
-  PermissionForEventsToInvokeWarmUpFunction:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref WarmUpFunction
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn:
-        Fn::GetAtt:
-          - ScheduledWarmUpFunctionRule
-          - Arn
-
-
   GetNewFacesFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -163,13 +113,31 @@ Resources:
         - AWSLambdaFullAccess
         - AmazonKinesisFirehoseFullAccess
         - CloudWatchFullAccess
-      Events:
-        StartEvent:
-          Type: Api
-          Properties:
-            Path: /get_new_faces
-            Method: get
-            RestApiId: !Ref FeedsApi
+
+  GetNewFacesTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, GetNewFacesFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt GetNewFacesFunction.Arn
+      TargetLambdaFunctionName: !Ref GetNewFacesFunction
+
+  GetNewFacesListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt GetNewFacesTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/get_new_faces"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 401
 
   LMMFunction:
     Type: AWS::Serverless::Function
@@ -182,10 +150,28 @@ Resources:
         - AWSLambdaFullAccess
         - AmazonKinesisFirehoseFullAccess
         - CloudWatchFullAccess
-      Events:
-        StartEvent:
-          Type: Api
-          Properties:
-            Path: /get_lmm
-            Method: get
-            RestApiId: !Ref FeedsApi
+
+  LMMTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, LMMFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt LMMFunction.Arn
+      TargetLambdaFunctionName: !Ref LMMFunction
+
+  LMMListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt LMMTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/get_lmm"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 402

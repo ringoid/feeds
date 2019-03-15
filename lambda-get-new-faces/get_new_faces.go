@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"strconv"
 	"github.com/ringoid/commons"
+	"strings"
 )
 
 const (
@@ -23,21 +24,25 @@ func init() {
 	apimodel.InitLambdaVars("get-new-faces-feed")
 }
 
-func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : start handle request %v", request)
-
-	sourceIp := request.RequestContext.Identity.SourceIP
-
-	if commons.IsItWarmUpRequest(request.Body, apimodel.Anlogger, lc) {
-		return events.APIGatewayProxyResponse{}, nil
+	userAgent := request.Headers["user-agent"]
+	if strings.HasPrefix(userAgent, "ELB-HealthChecker") {
+		return commons.NewServiceResponse("{}"), nil
 	}
+
+	if request.HTTPMethod != "GET" {
+		return commons.NewWrongHttpMethodServiceResponse(), nil
+	}
+	sourceIp := request.Headers["x-forwarded-for"]
+
+	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : start handle request %v", request)
 
 	appVersion, isItAndroid, ok, errStr := commons.ParseAppVersionFromHeaders(request.Headers, apimodel.Anlogger, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	accessToken, okA := request.QueryStringParameters["accessToken"]
@@ -48,7 +53,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		errStr = commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : okA [%v], okR [%v] and okL [%v]", okA, okR, okL)
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	limit := newFacesDefaultLimit
@@ -59,7 +64,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		if err != nil {
 			errStr = commons.WrongRequestParamsClientError
 			apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-			return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+			return commons.NewServiceResponse(errStr), nil
 		}
 	}
 
@@ -73,19 +78,19 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		errStr := commons.WrongRequestParamsClientError
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : lastActionTime in wrong format [%s]", lastActionTimeStr)
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	userId, ok, _, errStr := commons.CallVerifyAccessToken(appVersion, isItAndroid, accessToken, apimodel.InternalAuthFunctionName, apimodel.ClientLambda, apimodel.Anlogger, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : return %s to client", errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	feedResp := apimodel.GetNewFacesFeedResp{}
@@ -122,7 +127,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	resp, ok, errStr = enrichRespWithImageUrl(resp, userId, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: errStr}, nil
+		return commons.NewServiceResponse(errStr), nil
 	}
 
 	feedResp.Profiles = resp.Profiles
@@ -138,7 +143,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, commons.InternalServerError)
-		return events.APIGatewayProxyResponse{StatusCode: 200, Body: commons.InternalServerError}, nil
+		return commons.NewServiceResponse(commons.InternalServerError), nil
 	}
 
 	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfter)
@@ -147,7 +152,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId)
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
-	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}, nil
+	return commons.NewServiceResponse(string(body)), nil
 }
 
 func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (commons.ProfilesResp, bool, string) {

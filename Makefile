@@ -6,16 +6,12 @@ build:
 	go get -u github.com/ringoid/commons
 	@echo '--- Building get-new-faces-feeds function ---'
 	GOOS=linux go build lambda-get-new-faces/get_new_faces.go
-	@echo '--- Building warmup-image function ---'
-	GOOS=linux go build lambda-warmup/warm_up.go
 	@echo '--- Building llm-feeds function ---'
 	GOOS=linux go build lambda-lmm/lmm.go
 
 zip_lambda: build
 	@echo '--- Zip get-new-faces-feeds function ---'
 	zip get_new_faces.zip ./get_new_faces
-	@echo '--- Zip warmup-image function ---'
-	zip warmup-image.zip ./warm_up
 	@echo '--- Zip llm-image function ---'
 	zip lmm.zip ./lmm
 
@@ -44,8 +40,6 @@ clean:
 	@echo '--- Delete old artifacts ---'
 	rm -rf get_new_faces
 	rm -rf get_new_faces.zip
-	rm -rf warmup-image.zip
-	rm -rf warm_up
 	rm -rf lmm.zip
 	rm -rf lmm
 
