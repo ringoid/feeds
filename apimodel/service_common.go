@@ -19,14 +19,12 @@ var GetNewFacesFunctionName string
 var LikesYouFunctionName string
 var MatchesFunctionName string
 var MessagesFunctionName string
-var MessageContentFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
 var DeliveryStreamName string
 var AwsDeliveryStreamClient *firehose.Firehose
 
-var GetNewImagesInternalFunctionName string
 var BaseCloudWatchNamespace string
 var NewFaceProfilesReturnMetricName string
 var LikesYouProfilesReturnMetricName string
@@ -92,12 +90,6 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_MESSAGES_FUNCTION_NAME")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_MESSAGES_FUNCTION_NAME = [%s]", MessagesFunctionName)
-
-	GetNewImagesInternalFunctionName, ok = os.LookupEnv("INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME")
-	if !ok {
-		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME")
-	}
-	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME = [%s]", GetNewImagesInternalFunctionName)
 
 	CommonStreamName, ok = os.LookupEnv("COMMON_STREAM")
 	if !ok {

@@ -87,7 +87,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		return commons.NewServiceResponse(errStr), nil
 	}
 
-	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, lc)
+	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, resolution, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
 		return commons.NewServiceResponse(errStr), nil
@@ -103,15 +103,22 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 	profiles := make([]commons.Profile, 0)
 	for _, each := range internalNewFaces {
+
 		photos := make([]commons.Photo, 0)
-		for _, eachPhoto := range each.PhotoIds {
-			resolutionPhotoId, ok := commons.GetResolutionPhotoId(userId, eachPhoto, resolution, apimodel.Anlogger, lc)
-			if ok {
-				photos = append(photos, commons.Photo{
-					PhotoId: resolutionPhotoId,
-				})
-			}
+
+		for _, eachPhoto := range each.Photos {
+			photos = append(photos, commons.Photo{
+				PhotoId:  eachPhoto.ResizedPhotoId,
+				PhotoUri: eachPhoto.Link,
+			})
 		}
+
+		if len(photos) == 0 {
+			apimodel.Anlogger.Warnf(lc, "get_new_faces.go : get new faces return user [%s] with empty photo list for resolution [%s] for userId [%s]",
+				each.UserId, resolution, userId)
+			continue
+		}
+
 		profiles = append(profiles, commons.Profile{
 			UserId: each.UserId,
 			Photos: photos,
@@ -120,17 +127,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		targetIds = append(targetIds, each.UserId)
 	}
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : prepare [%d] new faces profiles for userId [%s]", len(profiles), userId)
-	resp := commons.ProfilesResp{}
-	resp.Profiles = profiles
 
-	//now enrich resp with photo uri
-	resp, ok, errStr = enrichRespWithImageUrl(resp, userId, lc)
-	if !ok {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-		return commons.NewServiceResponse(errStr), nil
-	}
-
-	feedResp.Profiles = resp.Profiles
+	feedResp.Profiles = profiles
 
 	//to simplify client logic lets remove possible nil objects
 	if feedResp.Profiles == nil {
@@ -155,95 +153,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	return commons.NewServiceResponse(string(body)), nil
 }
 
-func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (commons.ProfilesResp, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : enrich response %v with image uri for userId [%s]", sourceResp, userId)
-	if len(sourceResp.Profiles) == 0 {
-		return commons.ProfilesResp{}, true, ""
-	}
-
-	jsonBody, err := json.Marshal(sourceResp)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling source resp %s into json for userId [%s] : %v", sourceResp, userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewImagesInternalFunctionName), Payload: jsonBody})
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewImagesInternalFunctionName, jsonBody, userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	var response commons.FacesWithUrlResp
-	err = json.Unmarshal(resp.Payload, &response)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : receive enriched with uri info from image service for userId [%s], map %v", userId, response)
-
-	if len(response.UserIdPhotoIdKeyUrlMap) == 0 {
-		apimodel.Anlogger.Warnf(lc, "get_new_faces.go : receive 0 image urls for userId [%s]", userId)
-		return commons.ProfilesResp{}, true, ""
-	}
-
-	targetProfiles := make([]commons.Profile, 0)
-	for _, eachProfile := range sourceResp.Profiles {
-		sourceUserId := eachProfile.UserId
-		//prepare Profile
-		targetProfile := commons.Profile{}
-		targetProfile.UserId = sourceUserId
-		//it's new faces so always unseen
-		targetProfile.Unseen = true
-		targetPhotos := make([]commons.Photo, 0)
-		//apimodel.Anlogger.Debugf(lc, "get_new_faces.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
-		//now fill profile info
-		for _, eachPhoto := range eachProfile.Photos {
-			sourcePhotoId := eachPhoto.PhotoId
-			apimodel.Anlogger.Debugf(lc, "get_new_faces.go : check photo with photoId [%s], userId [%s]", sourcePhotoId, userId)
-			//construct key for map which we receive from images service
-			targetMapKey := sourceUserId + "_" + sourcePhotoId
-			if targetPhotoUri, ok := response.UserIdPhotoIdKeyUrlMap[targetMapKey]; ok {
-				//apimodel.Anlogger.Debugf(lc, "get_new_faces.go : "+
-				//	"found photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
-				//	targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
-
-				//it means that we have photo uri in response from image service
-				targetPhotos = append(targetPhotos, commons.Photo{
-					PhotoId:  sourcePhotoId,
-					PhotoUri: targetPhotoUri,
-				})
-			} else {
-				apimodel.Anlogger.Debugf(lc, "get_new_faces.go : "+
-					"didn't find photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
-					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
-			}
-		}
-
-		//now check should we put this profile in response
-		targetProfile.Photos = targetPhotos
-		if len(targetProfile.Photos) > 0 {
-			apimodel.Anlogger.Debugf(lc, "get_new_faces.go : add profile with targetProfileId [%s] to the response with [%d] photos",
-				targetProfile.UserId, len(targetProfile.Photos))
-			targetProfiles = append(targetProfiles, targetProfile)
-		} else {
-			apimodel.Anlogger.Debugf(lc, "get_new_faces.go : skip profile with targetProfileId [%s], 0 photo uri", targetProfile.UserId)
-		}
-	}
-
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully enrich response with photo uri for "+
-		"userId [%s], profiles num [%d], resp %v", userId, len(targetProfiles), targetProfiles)
-	sourceResp.Profiles = targetProfiles
-	return sourceResp, true, ""
-}
-
 //response, repeat request after sec, ok and error string
-func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdacontext.LambdaContext) ([]commons.InternalNewFace, int64, bool, string) {
+func getNewFaces(userId string, limit int, lastActionTime int64, resolution string, lc *lambdacontext.LambdaContext) ([]commons.InternalProfiles, int64, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
@@ -256,6 +167,7 @@ func getNewFaces(userId string, limit int, lastActionTime int64, lc *lambdaconte
 		UserId:         userId,
 		Limit:          limit,
 		LastActionTime: lastActionTime,
+		Resolution:     resolution,
 	}
 	jsonBody, err := json.Marshal(req)
 	if err != nil {

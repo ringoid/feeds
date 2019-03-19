@@ -23,7 +23,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 	wg *sync.WaitGroup, lc *lambdacontext.LambdaContext) {
 	defer wg.Done()
 
-	llmResult, ok, errStr := llm(userId, functionName, requestNewPart, lastActionTimeInt, lc)
+	llmResult, ok, errStr := llm(userId, functionName, requestNewPart, lastActionTimeInt, resolution, lc)
 	if !ok {
 		innerResult.ok = ok
 		innerResult.errStr = errStr
@@ -38,58 +38,40 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 		return
 	}
 
-	targetIds := make([]string, 0)
-
 	profiles := make([]commons.Profile, 0)
 	for _, each := range llmResult.Profiles {
+
 		photos := make([]commons.Photo, 0)
-		for _, eachPhoto := range each.PhotoIds {
-			resolutionPhotoId, ok := commons.GetResolutionPhotoId(userId, eachPhoto, resolution, apimodel.Anlogger, lc)
-			if ok {
-				photos = append(photos, commons.Photo{
-					PhotoId: resolutionPhotoId,
-				})
-			}
+
+		for _, eachPhoto := range each.Photos {
+			photos = append(photos, commons.Photo{
+				PhotoId:  eachPhoto.ResizedPhotoId,
+				PhotoUri: eachPhoto.Link,
+			})
 		}
+
 		messages := make([]commons.Message, 0)
 		for _, eachMessage := range each.Messages {
 			messages = append(messages, eachMessage)
 		}
+
+		if len(photos) == 0 {
+			apimodel.Anlogger.Warnf(lc, "lmm.go : lmm return user [%s] with empty photo list for resolution [%s] for userId [%s]",
+				each.UserId, resolution, userId)
+			continue
+		}
+
 		profiles = append(profiles, commons.Profile{
 			UserId:   each.UserId,
 			Photos:   photos,
 			Unseen:   requestNewPart,
 			Messages: messages,
 		})
-
-		targetIds = append(targetIds, each.UserId)
 	}
 	apimodel.Anlogger.Debugf(lc, "lmm.go : prepare [%d] likes you profiles for userId [%s]", len(profiles), userId)
 
-	resp := commons.ProfilesResp{}
-	resp.Profiles = profiles
-
-	//now enrich resp with photo uri
-	resp, ok, errStr = enrichRespWithImageUrl(resp, userId, lc)
-	if !ok {
-		innerResult.ok = ok
-		innerResult.errStr = errStr
-		return
-	}
-
-	//only for messages
-	//if functionName == apimodel.MessagesFunctionName {
-	//	enrichProfiles, ok, errStr := enrichWithMessages(resp.Profiles, userId, lc)
-	//	if !ok {
-	//		innerResult.ok = ok
-	//		innerResult.errStr = errStr
-	//		return
-	//	}
-	//	resp.Profiles = enrichProfiles
-	//}
-
 	innerResult.ok = true
-	innerResult.profiles = resp.Profiles
+	innerResult.profiles = profiles
 
 	return
 }
@@ -241,148 +223,14 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.LikesYouProfilesReturnMetricName, len(feedResp.LikesYou), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MatchProfilesReturnMetricName, len(feedResp.Matches), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.MessageProfilesReturnMetricName, len(feedResp.Messages), apimodel.AwsCWClient, apimodel.Anlogger, lc)
+
 	finishTime := commons.UnixTimeInMillis()
 	apimodel.Anlogger.Infof(lc, "lmm.go : successfully return repeat request after [%v], [%d] likes you profiles, [%d] matches and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Matches), len(feedResp.Messages), userId, finishTime-startTime)
 	apimodel.Anlogger.Debugf(lc, "lmm.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
-func enrichWithMessages(profiles []commons.Profile, userId string, lc *lambdacontext.LambdaContext) ([]commons.Profile, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "lmm.go : enrich message's response with actual message list for userId [%s]", userId)
-	if len(profiles) == 0 {
-		return profiles, true, ""
-	}
-
-	internalReq := commons.InternalGetMessagesReq{
-		SourceUserId:  userId,
-		TargetUserIds: make([]string, 0),
-	}
-	for _, each := range profiles {
-		internalReq.TargetUserIds = append(internalReq.TargetUserIds, each.UserId)
-	}
-
-	jsonBody, err := json.Marshal(internalReq)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling source request %s into json for userId [%s] : %v", internalReq, userId, err)
-		return profiles, false, commons.InternalServerError
-	}
-
-	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.MessageContentFunctionName), Payload: jsonBody})
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.MessageContentFunctionName, jsonBody, userId, err)
-		return profiles, false, commons.InternalServerError
-	}
-
-	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return profiles, false, commons.InternalServerError
-	}
-
-	var response commons.InternalGetMessagesResp
-	err = json.Unmarshal(resp.Payload, &response)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return profiles, false, commons.InternalServerError
-	}
-
-	for index, each := range profiles {
-		if msgs, ok := response.ConversationsMap[each.UserId]; ok {
-			profiles[index].Messages = msgs
-		}
-	}
-
-	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully enrich message's response with actual message list for userId [%s]", userId)
-	return profiles, true, ""
-}
-
-func enrichRespWithImageUrl(sourceResp commons.ProfilesResp, userId string, lc *lambdacontext.LambdaContext) (commons.ProfilesResp, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "lmm.go : enrich response with image uri for userId [%s]", userId)
-	if len(sourceResp.Profiles) == 0 {
-		return commons.ProfilesResp{}, true, ""
-	}
-
-	jsonBody, err := json.Marshal(sourceResp)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error marshaling source resp %s into json for userId [%s] : %v", sourceResp, userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewImagesInternalFunctionName), Payload: jsonBody})
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewImagesInternalFunctionName, jsonBody, userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	var response commons.FacesWithUrlResp
-	err = json.Unmarshal(resp.Payload, &response)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "lmm.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return commons.ProfilesResp{}, false, commons.InternalServerError
-	}
-
-	apimodel.Anlogger.Debugf(lc, "lmm.go : receive enriched with uri info from image service for userId [%s], map %v", userId, response)
-
-	if len(response.UserIdPhotoIdKeyUrlMap) == 0 {
-		apimodel.Anlogger.Warnf(lc, "lmm.go : receive 0 image urls for userId [%s]", userId)
-		return commons.ProfilesResp{}, true, ""
-	}
-
-	targetProfiles := make([]commons.Profile, 0)
-	for _, eachProfile := range sourceResp.Profiles {
-		sourceUserId := eachProfile.UserId
-		//prepare Profile
-		targetProfile := commons.Profile{}
-		targetProfile.UserId = sourceUserId
-		targetProfile.Unseen = eachProfile.Unseen
-		targetProfile.Messages = eachProfile.Messages
-
-		targetPhotos := make([]commons.Photo, 0)
-		apimodel.Anlogger.Debugf(lc, "lmm.go : construct photo slice for targetProfileId [%s], userId [%s]", targetProfile.UserId, userId)
-		//now fill profile info
-		for _, eachPhoto := range eachProfile.Photos {
-			sourcePhotoId := eachPhoto.PhotoId
-			apimodel.Anlogger.Debugf(lc, "lmm.go : check photo with photoId [%s], userId [%s]", sourcePhotoId, userId)
-			//construct key for map which we receive from images service
-			targetMapKey := sourceUserId + "_" + sourcePhotoId
-			if targetPhotoUri, ok := response.UserIdPhotoIdKeyUrlMap[targetMapKey]; ok {
-				apimodel.Anlogger.Debugf(lc, "lmm.go : "+
-					"found photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
-					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
-				//it means that we have photo uri in response from image service
-				targetPhotos = append(targetPhotos, commons.Photo{
-					PhotoId:  sourcePhotoId,
-					PhotoUri: targetPhotoUri,
-				})
-			} else {
-				apimodel.Anlogger.Debugf(lc, "lmm.go : "+
-					"didn't find photoUri by key [%s] with photoId [%s] for targetProfileId [%s], userId [%s]",
-					targetMapKey, sourcePhotoId, targetProfile.UserId, userId)
-			}
-		}
-
-		//now check should we put this profile in response
-		targetProfile.Photos = targetPhotos
-		if len(targetProfile.Photos) > 0 {
-			apimodel.Anlogger.Debugf(lc, "lmm.go : add profile with targetProfileId [%s] to the response with [%d] photos",
-				targetProfile.UserId, len(targetProfile.Photos))
-			targetProfiles = append(targetProfiles, targetProfile)
-		} else {
-			apimodel.Anlogger.Debugf(lc, "lmm.go : skip profile with targetProfileId [%s], 0 photo uri", targetProfile.UserId)
-		}
-	}
-
-	apimodel.Anlogger.Debugf(lc, "lmm.go : successfully enrich response with photo uri for "+
-		"userId [%s], profiles num [%d], resp %v", userId, len(targetProfiles), targetProfiles)
-	sourceResp.Profiles = targetProfiles
-	return sourceResp, true, ""
-}
-
-func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, lc *lambdacontext.LambdaContext) (commons.InternalLMMResp, bool, string) {
+func llm(userId, functionName string, requestNewPart bool, lastActionTime int64, resolution string, lc *lambdacontext.LambdaContext) (commons.InternalLMMResp, bool, string) {
 
 	apimodel.Anlogger.Debugf(lc, "lmm.go : get llm (function name %s, request new part %v) you for userId [%s]", functionName, requestNewPart, userId)
 
@@ -390,6 +238,7 @@ func llm(userId, functionName string, requestNewPart bool, lastActionTime int64,
 		UserId:                  userId,
 		RequestNewPart:          requestNewPart,
 		RequestedLastActionTime: lastActionTime,
+		Resolution:              resolution,
 	}
 	jsonBody, err := json.Marshal(req)
 	if err != nil {

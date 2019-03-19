@@ -87,9 +87,6 @@ Globals:
             DELIVERY_STREAM:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, DeliveryStreamExportName] ]
-            INTERNAL_GET_NEW_IMAGES_FUNCTION_NAME:
-              Fn::ImportValue:
-                !Join [ "-", [ !Ref Env, InternalGetImagesFunctionExport] ]
             CLOUD_WATCH_MESSAGES_RETURN: !Ref CloudWatchMessageProfilesReturnMetricName
             CLOUD_WATCH_MATCHES_RETURN: !Ref CloudWatchMatchProfilesReturnMetricName
             CLOUD_WATCH_LIKES_YOU_RETURN: !Ref CloudWatchLikesYouProfilesReturnMetricName
