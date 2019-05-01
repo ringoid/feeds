@@ -30,6 +30,15 @@ Mappings:
       stage: stage-lmm-feeds-tg
       prod: prod-lmm-feeds-tg
 
+    LMHISFunction:
+      test: test-lmhis-feeds
+      stage: stage-lmhis-feeds
+      prod: prod-lmhis-feeds
+    LMHISFunctionTargetGroup:
+      test: test-lmhis-feeds-tg
+      stage: stage-lmhis-feeds-tg
+      prod: prod-lmhis-feeds-tg
+
 Parameters:
   Env:
     Type: String
@@ -81,6 +90,9 @@ Globals:
             INTERNAL_MESSAGES_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, MessagesFunctionExport] ]
+            INTERNAL_LMHIS_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, LMHISFunctionExport] ]
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]
@@ -172,3 +184,40 @@ Resources:
         Fn::ImportValue:
           !Join [ "-", [ !Ref Env, ListenerArnExport] ]
       Priority: 402
+
+  LMHISFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, LMHISFunction, !Ref Env]
+      Handler: lmhis
+      CodeUri: ./lmhis.zip
+      Description: LMHIS feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
+
+  LMHISTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, LMHISFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt LMHISFunction.Arn
+      TargetLambdaFunctionName: !Ref LMHISFunction
+
+  LMHISListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt LMHISTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/get_lmhis"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 403

@@ -19,6 +19,7 @@ var GetNewFacesFunctionName string
 var LikesYouFunctionName string
 var MatchesFunctionName string
 var MessagesFunctionName string
+var LMHISFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
@@ -90,6 +91,12 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_MESSAGES_FUNCTION_NAME")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_MESSAGES_FUNCTION_NAME = [%s]", MessagesFunctionName)
+
+	LMHISFunctionName, ok = os.LookupEnv("INTERNAL_LMHIS_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_LMHIS_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_LMHIS_FUNCTION_NAME = [%s]", LMHISFunctionName)
 
 	CommonStreamName, ok = os.LookupEnv("COMMON_STREAM")
 	if !ok {
@@ -173,6 +180,27 @@ func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.Lamb
 	}
 	for index := range resp.Messages {
 		resp.Messages[index].DefaultSortingOrderPosition = index
+	}
+	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
+	return resp
+}
+
+func MarkLMHISDefaultSort(userId string, resp *LMHISFeedResp, lc *lambdacontext.LambdaContext) *LMHISFeedResp {
+	Anlogger.Debugf(lc, "service_common.go : mark lmhis resp by default sort for userId [%s]", userId)
+	for index := range resp.LikesYou {
+		resp.LikesYou[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Matches {
+		resp.Matches[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Hellos {
+		resp.Hellos[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Inbox {
+		resp.Inbox[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Sent {
+		resp.Sent[index].DefaultSortingOrderPosition = index
 	}
 	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
 	return resp
