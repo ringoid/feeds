@@ -182,25 +182,25 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//hellos (new part)
 	commonWaitGroup.Add(1)
 	hellosNewPart := InnerLmhisResult{}
-	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.MessagesFunctionName, &hellosNewPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, true, apimodel.LMHISFunctionName, &hellosNewPart,
 		&commonWaitGroup, "hellos", lc)
 
-	//hellos (new part)
+	//hellos (old part)
 	commonWaitGroup.Add(1)
 	hellosOldPart := InnerLmhisResult{}
-	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MessagesFunctionName, &hellosOldPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.LMHISFunctionName, &hellosOldPart,
 		&commonWaitGroup, "hellos", lc)
 
 	//inbox
 	commonWaitGroup.Add(1)
 	inboxPart := InnerLmhisResult{}
-	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MessagesFunctionName, &inboxPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.LMHISFunctionName, &inboxPart,
 		&commonWaitGroup, "inbox", lc)
 
 	//sent
 	commonWaitGroup.Add(1)
 	sentPart := InnerLmhisResult{}
-	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.MessagesFunctionName, &sentPart,
+	go handleJob(userId, resolution, lastActionTimeInt64, false, apimodel.LMHISFunctionName, &sentPart,
 		&commonWaitGroup, "sent", lc)
 
 	commonWaitGroup.Wait()
