@@ -25,6 +25,8 @@ func init() {
 }
 
 func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
+	startTime := commons.UnixTimeInMillis()
+
 	lc, _ := lambdacontext.FromContext(ctx)
 
 	userAgent := request.Headers["user-agent"]
@@ -147,8 +149,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
-
-	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId)
+	finishTime := commons.UnixTimeInMillis()
+	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, finishTime-startTime)
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
