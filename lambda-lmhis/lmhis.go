@@ -45,8 +45,9 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 
 		for _, eachPhoto := range each.Photos {
 			photos = append(photos, commons.Photo{
-				PhotoId:  eachPhoto.ResizedPhotoId,
-				PhotoUri: eachPhoto.Link,
+				PhotoId:           eachPhoto.ResizedPhotoId,
+				PhotoUri:          eachPhoto.Link,
+				ThumbnailPhotoUri: eachPhoto.ThumbnailLink,
 			})
 		}
 

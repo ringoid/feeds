@@ -110,8 +110,9 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 		for _, eachPhoto := range each.Photos {
 			photos = append(photos, commons.Photo{
-				PhotoId:  eachPhoto.ResizedPhotoId,
-				PhotoUri: eachPhoto.Link,
+				PhotoId:           eachPhoto.ResizedPhotoId,
+				PhotoUri:          eachPhoto.Link,
+				ThumbnailPhotoUri: eachPhoto.ThumbnailLink,
 			})
 		}
 
