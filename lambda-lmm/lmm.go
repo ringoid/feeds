@@ -62,11 +62,17 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			continue
 		}
 
+		lastOnlineText, lastOnlineFlag := apimodel.TransformLastOnlineTimeIntoStatusText(userId, each.LastOnlineTime, each.SourceLocale, lc)
+		distanceText := apimodel.TransformDistanceInDistanceText(userId, each, lc)
+
 		profiles = append(profiles, commons.Profile{
-			UserId:   each.UserId,
-			Photos:   photos,
-			Unseen:   requestNewPart,
-			Messages: messages,
+			UserId:         each.UserId,
+			Photos:         photos,
+			Unseen:         requestNewPart,
+			Messages:       messages,
+			LastOnlineText: lastOnlineText,
+			LastOnlineFlag: lastOnlineFlag,
+			DistanceText:   distanceText,
 		})
 	}
 	apimodel.Anlogger.Debugf(lc, "lmm.go : prepare [%d] likes you profiles for userId [%s]", len(profiles), userId)

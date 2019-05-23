@@ -122,9 +122,15 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			continue
 		}
 
+		lastOnlineText, lastOnlineFlag := apimodel.TransformLastOnlineTimeIntoStatusText(userId, each.LastOnlineTime, each.SourceLocale, lc)
+		distanceText := apimodel.TransformDistanceInDistanceText(userId, each, lc)
+
 		profiles = append(profiles, commons.Profile{
-			UserId: each.UserId,
-			Photos: photos,
+			UserId:         each.UserId,
+			Photos:         photos,
+			LastOnlineText: lastOnlineText,
+			LastOnlineFlag: lastOnlineFlag,
+			DistanceText:   distanceText,
 		})
 
 		targetIds = append(targetIds, each.UserId)
