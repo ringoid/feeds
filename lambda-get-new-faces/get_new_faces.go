@@ -131,6 +131,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			LastOnlineText: lastOnlineText,
 			LastOnlineFlag: lastOnlineFlag,
 			DistanceText:   distanceText,
+			Age:            each.Age,
 		})
 
 		targetIds = append(targetIds, each.UserId)

@@ -73,6 +73,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			LastOnlineText: lastOnlineText,
 			LastOnlineFlag: lastOnlineFlag,
 			DistanceText:   distanceText,
+			Age:            each.Age,
 		})
 	}
 	apimodel.Anlogger.Debugf(lc, "lmm.go : prepare [%d] likes you profiles for userId [%s]", len(profiles), userId)
