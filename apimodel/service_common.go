@@ -170,7 +170,7 @@ func InitLambdaVars(lambdaName string) {
 	userIdStatusEnabledMap["b9094fec646aa6296d0d3b3238801f92af34083a"] = true
 	userIdStatusEnabledMap["54047644372b264ee02a1ac4e47cc6d02fc517bd"] = true
 	//Iam
-	userIdStatusEnabledMap["f2c1e8abc72645c23cf2f89c8f0e7cb4fd7d9adc"] = true
+	userIdStatusEnabledMap["471d36399d776b7e3c4e031bf5e25cc67b452378"] = true
 	//Victor
 	userIdStatusEnabledMap["c86a29c241f8a0dadf3cff31b4c831bbfe3f2633"] = true
 	//Maxim
@@ -237,18 +237,22 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 	} else {
 		if diff <= 900000 { //15 min
 			lastOnlineText = "Online"
-		} else if diff > 900000 && diff <= 3599999 { //15 min < 59.99 min
-			localM := "m"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
-				localM = "мин"
+				lastOnlineText = "Онлайн"
+			}
+		} else if diff > 900000 && diff <= 3599999 { //15 min < 59.99 min
+			localM := "m ago"
+			sl := strings.ToLower(sourceLocale)
+			if sl == "ru" || sl == "be" || sl == "ua" {
+				localM = "мин назад"
 			}
 			lastOnlineText = fmt.Sprintf("%v%s", diff/60000, localM)
 		} else if diff >= 3600000 && diff <= 86400000 { // 1h < 24h
-			localH := "h"
+			localH := "h ago"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
-				localH = "ч"
+				localH = "ч назад"
 			}
 			lastOnlineText = fmt.Sprintf("%v%s", diff/3600000, localH)
 		} else if diff > 86400000 && diff <= 172800000 { //24h < 48h
@@ -257,16 +261,19 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 			if sl == "ru" || sl == "be" || sl == "ua" {
 				lastOnlineText = "Вчера"
 			}
-		} else if diff > 172800000 && diff <= 345600000 { //48h < 4 d
-			localD := "d"
+		} else if diff > 172800000 && diff <= 604800000 { //48h < 7 d
+			localD := "d ago"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
-				localD = "д"
+				localD = "д назад"
 			}
 			lastOnlineText = fmt.Sprintf("%v%s", diff/86400000, localD)
 		} else {
-			lastOnlineText = "unknown"
-			lastOnlineFlag = "unknown"
+			lastOnlineText = "7+ days ago"
+			sl := strings.ToLower(sourceLocale)
+			if sl == "ru" || sl == "be" || sl == "ua" {
+				lastOnlineText = "Больше недели назад"
+			}
 		}
 
 		if lastOnlineFlag != "unknown" {
@@ -274,18 +281,10 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 				lastOnlineFlag = "online"
 			} else if diff > 1800000 && diff <= 10800000 {
 				lastOnlineFlag = "away"
-			} else if diff > 10800000 && diff <= 345600000 {
-				lastOnlineFlag = "offline"
 			} else {
-				lastOnlineFlag = "unknown"
+				lastOnlineFlag = "offline"
 			}
 		}
-	}
-
-	//todo:delete after tests
-	if allow := userIdStatusEnabledMap[userId]; Env == "prod" && !allow {
-		lastOnlineText = "unknown"
-		lastOnlineFlag = "unknown"
 	}
 
 	Anlogger.Debugf(lc, "service_common.go : successfully transform lastOnlineTime [%v] to lastOnlineText [%s] and  lastOnlineFlag [%s] for userId [%s]", lastOnlineTime, lastOnlineText, lastOnlineFlag, userId)
@@ -303,9 +302,11 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 		distance := Distance(Point(internal.Lat, internal.Lon), Point(internal.SourceLat, internal.SourceLon))
 		Anlogger.Debugf(lc, "service_common.go : distance is [%v]", distance)
 		if distance <= 1000 {
-			distanceText = "<1"
-		} else if distance > 1000 && distance < 15000000 {
+			distanceText = "1 "
+		} else if distance > 1000 && distance <= 100000 {
 			distanceText = fmt.Sprintf("%d", int(distance/1000))
+		} else if distance > 100000 {
+			distanceText = "100+ "
 		} else {
 			distanceText = "unknown"
 		}
@@ -317,11 +318,6 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 			localKm = "км"
 		}
 		distanceText = fmt.Sprintf("%s%s", distanceText, localKm)
-	}
-
-	//todo:delete after tests
-	if allow := userIdStatusEnabledMap[userId]; Env == "prod" && !allow {
-		distanceText = "unknown"
 	}
 
 	Anlogger.Debugf(lc, "service_common.go : successfully transform request [%v] to distance text [%s] for userId [%s]", internal, distanceText, userId)
