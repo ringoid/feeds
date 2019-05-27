@@ -269,11 +269,13 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 			}
 			lastOnlineText = fmt.Sprintf("%v%s", diff/86400000, localD)
 		} else {
-			lastOnlineText = "7+ days ago"
-			sl := strings.ToLower(sourceLocale)
-			if sl == "ru" || sl == "be" || sl == "ua" {
-				lastOnlineText = "Больше недели назад"
-			}
+			lastOnlineText = "unknown"
+			lastOnlineFlag = "unknown"
+			//lastOnlineText = "7+ days ago"
+			//sl := strings.ToLower(sourceLocale)
+			//if sl == "ru" || sl == "be" || sl == "ua" {
+			//	lastOnlineText = "Больше недели назад"
+			//}
 		}
 
 		if lastOnlineFlag != "unknown" {
