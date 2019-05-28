@@ -261,7 +261,7 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 			if sl == "ru" || sl == "be" || sl == "ua" {
 				lastOnlineText = "Вчера"
 			}
-		} else if diff > 172800000 && diff <= 604800000 { //48h < 7 d
+		} else if diff > 172800000 && diff <= 345600000 { //48h < 4 d
 			localD := "d ago"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
