@@ -65,7 +65,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 		lastOnlineText, lastOnlineFlag := apimodel.TransformLastOnlineTimeIntoStatusText(userId, each.LastOnlineTime, each.SourceLocale, lc)
 		distanceText := apimodel.TransformDistanceInDistanceText(userId, each, lc)
 
-		profiles = append(profiles, commons.Profile{
+		profile := commons.Profile{
 			UserId:         each.UserId,
 			Photos:         photos,
 			Unseen:         requestNewPart,
@@ -78,7 +78,13 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			Transport:      each.Transport,
 			Income:         each.Income,
 			Height:         each.Height,
-		})
+			EducationLevel: each.EducationLevel,
+			HairColor:      each.HairColor,
+		}
+
+		profile = apimodel.CheckProfileBeforeResponse(userId, profile)
+
+		profiles = append(profiles, profile)
 	}
 	apimodel.Anlogger.Debugf(lc, "lmhis.go : prepare [%d] likes you profiles for userId [%s]", len(profiles), userId)
 

@@ -7,6 +7,7 @@ import (
 
 const (
 	DefaultRepeatTimeSec = int64(800)
+	DefaultPoolRepeatTimeSec = int64(3000)
 )
 
 type GetNewFacesFeedResp struct {
@@ -42,5 +43,17 @@ type LMHISFeedResp struct {
 }
 
 func (resp LMHISFeedResp) String() string {
+	return fmt.Sprintf("%#v", resp)
+}
+
+type ChatFeedResponse struct {
+	commons.BaseResponse
+	ProfileChat        commons.Profile `json:"chat"`
+	IsChatExists       bool            `json:"chatExists"`
+	RepeatRequestAfter int64           `json:"repeatRequestAfter"`
+	PullAgainAfter     int64           `json:"pullAgainAfter"`
+}
+
+func (resp ChatFeedResponse) String() string {
 	return fmt.Sprintf("%#v", resp)
 }

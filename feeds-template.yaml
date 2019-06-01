@@ -39,6 +39,15 @@ Mappings:
       stage: stage-lmhis-feeds-tg
       prod: prod-lmhis-feeds-tg
 
+    ChatFunction:
+      test: test-chat-feeds
+      stage: stage-chat-feeds
+      prod: prod-chat-feeds
+    ChatFunctionTargetGroup:
+      test: test-chat-feeds-tg
+      stage: stage-chat-feeds-tg
+      prod: prod-chat-feeds-tg
+
 Parameters:
   Env:
     Type: String
@@ -93,6 +102,9 @@ Globals:
             INTERNAL_LMHIS_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, LMHISFunctionExport] ]
+            INTERNAL_CHAT_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, ChatFunctionExport] ]
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]
@@ -221,3 +233,40 @@ Resources:
         Fn::ImportValue:
           !Join [ "-", [ !Ref Env, ListenerArnExport] ]
       Priority: 403
+
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, ChatFunction, !Ref Env]
+      Handler: chat
+      CodeUri: ./chat.zip
+      Description: Chat feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
+
+  ChatTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, ChatFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt ChatFunction.Arn
+      TargetLambdaFunctionName: !Ref ChatFunction
+
+  ChatListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt ChatTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/chat"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 404

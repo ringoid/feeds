@@ -10,6 +10,8 @@ build:
 	GOOS=linux go build lambda-lmm/lmm.go
 	@echo '--- Building lmhis-feeds function ---'
 	GOOS=linux go build lambda-lmhis/lmhis.go
+	@echo '--- Building chat-feeds function ---'
+	GOOS=linux go build lambda-get-chat/chat.go
 
 zip_lambda: build
 	@echo '--- Zip get-new-faces-feeds function ---'
@@ -18,6 +20,8 @@ zip_lambda: build
 	zip lmm.zip ./lmm
 	@echo '--- Zip lmhis-feeds function ---'
 	zip lmhis.zip ./lmhis
+	@echo '--- Zip chat-feeds function ---'
+	zip chat.zip ./chat
 
 test-deploy: zip_lambda
 	@echo '--- Build lambda test ---'
@@ -48,4 +52,6 @@ clean:
 	rm -rf lmm
 	rm -rf lmhis
 	rm -rf lmhis.zip
+	rm -rf chat.zip
+	rm -rf chat
 

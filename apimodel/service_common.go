@@ -21,6 +21,7 @@ var LikesYouFunctionName string
 var MatchesFunctionName string
 var MessagesFunctionName string
 var LMHISFunctionName string
+var ChatFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
@@ -101,6 +102,12 @@ func InitLambdaVars(lambdaName string) {
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_LMHIS_FUNCTION_NAME = [%s]", LMHISFunctionName)
 
+	ChatFunctionName, ok = os.LookupEnv("INTERNAL_CHAT_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_CHAT_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_CHAT_FUNCTION_NAME = [%s]", ChatFunctionName)
+
 	CommonStreamName, ok = os.LookupEnv("COMMON_STREAM")
 	if !ok {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty COMMON_STREAM")
@@ -175,6 +182,13 @@ func InitLambdaVars(lambdaName string) {
 	userIdStatusEnabledMap["c86a29c241f8a0dadf3cff31b4c831bbfe3f2633"] = true
 	//Maxim
 	userIdStatusEnabledMap["f966276704b50ec1d472e34bbd184d89082bcdfb"] = true
+}
+
+func CheckProfileBeforeResponse(userId string, prof commons.Profile) (commons.Profile) {
+	if exist := userIdStatusEnabledMap[userId]; !exist && Env == "prod" {
+		prof.Age = 0
+	}
+	return prof
 }
 
 func MarkNewFacesDefaultSort(userId string, resp *GetNewFacesFeedResp, lc *lambdacontext.LambdaContext) *GetNewFacesFeedResp {

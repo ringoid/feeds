@@ -125,7 +125,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		lastOnlineText, lastOnlineFlag := apimodel.TransformLastOnlineTimeIntoStatusText(userId, each.LastOnlineTime, each.SourceLocale, lc)
 		distanceText := apimodel.TransformDistanceInDistanceText(userId, each, lc)
 
-		profiles = append(profiles, commons.Profile{
+		profile := commons.Profile{
 			UserId:         each.UserId,
 			Photos:         photos,
 			LastOnlineText: lastOnlineText,
@@ -136,7 +136,13 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			Transport:      each.Transport,
 			Income:         each.Income,
 			Height:         each.Height,
-		})
+			EducationLevel: each.EducationLevel,
+			HairColor:      each.HairColor,
+		}
+
+		profile = apimodel.CheckProfileBeforeResponse(userId, profile)
+
+		profiles = append(profiles, profile)
 
 		targetIds = append(targetIds, each.UserId)
 	}
