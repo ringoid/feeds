@@ -110,6 +110,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		LastOnlineFlag: lastOnlineFlag,
 		DistanceText:   distanceText,
 		Age:            internalChat.Profile.Age,
+		Sex:            internalChat.Profile.Sex,
 		Property:       internalChat.Profile.Property,
 		Transport:      internalChat.Profile.Transport,
 		Income:         internalChat.Profile.Income,

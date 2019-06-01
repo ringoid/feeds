@@ -74,6 +74,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			LastOnlineFlag: lastOnlineFlag,
 			DistanceText:   distanceText,
 			Age:            each.Age,
+			Sex:            each.Sex,
 			Property:       each.Property,
 			Transport:      each.Transport,
 			Income:         each.Income,

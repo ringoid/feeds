@@ -132,6 +132,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			LastOnlineFlag: lastOnlineFlag,
 			DistanceText:   distanceText,
 			Age:            each.Age,
+			Sex:            each.Sex,
 			Property:       each.Property,
 			Transport:      each.Transport,
 			Income:         each.Income,
