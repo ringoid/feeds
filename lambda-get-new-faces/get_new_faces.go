@@ -139,6 +139,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			Height:         each.Height,
 			EducationLevel: each.EducationLevel,
 			HairColor:      each.HairColor,
+			Children:       each.Children,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(userId, profile)

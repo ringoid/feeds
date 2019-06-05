@@ -81,6 +81,7 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			Height:         each.Height,
 			EducationLevel: each.EducationLevel,
 			HairColor:      each.HairColor,
+			Children:       each.Children,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(userId, profile)
