@@ -321,8 +321,6 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 			distanceText = "1 "
 		} else if distance > 1000 && distance <= 100000 {
 			distanceText = fmt.Sprintf("%d", int(distance/1000))
-		} else if distance > 100000 {
-			distanceText = "100+ "
 		} else {
 			distanceText = "unknown"
 		}
