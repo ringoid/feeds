@@ -185,9 +185,9 @@ func InitLambdaVars(lambdaName string) {
 }
 
 func CheckProfileBeforeResponse(userId string, prof commons.Profile) (commons.Profile) {
-	if exist := userIdStatusEnabledMap[userId]; !exist && Env == "prod" {
-		prof.Age = 0
-	}
+	//if exist := userIdStatusEnabledMap[userId]; !exist && Env == "prod" {
+	//	prof.Age = 0
+	//}
 	return prof
 }
 
