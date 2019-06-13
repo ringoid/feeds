@@ -118,6 +118,15 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		EducationLevel: internalChat.Profile.EducationLevel,
 		HairColor:      internalChat.Profile.HairColor,
 		Children:       internalChat.Profile.Children,
+		Name:           internalChat.Profile.Name,
+		JobTitle:       internalChat.Profile.JobTitle,
+		Company:        internalChat.Profile.Company,
+		EducationText:  internalChat.Profile.EducationText,
+		About:          internalChat.Profile.About,
+		Instagram:      internalChat.Profile.Instagram,
+		TikTok:         internalChat.Profile.TikTok,
+		WhereLive:      internalChat.Profile.WhereLive,
+		WhereFrom:      internalChat.Profile.WhereFrom,
 	}
 
 	profile = apimodel.CheckProfileBeforeResponse(userId, profile)

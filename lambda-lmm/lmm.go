@@ -82,6 +82,15 @@ func handleJob(userId, resolution string, lastActionTimeInt int64, requestNewPar
 			EducationLevel: each.EducationLevel,
 			HairColor:      each.HairColor,
 			Children:       each.Children,
+			Name:           each.Name,
+			JobTitle:       each.JobTitle,
+			Company:        each.Company,
+			EducationText:  each.EducationText,
+			About:          each.About,
+			Instagram:      each.Instagram,
+			TikTok:         each.TikTok,
+			WhereLive:      each.WhereLive,
+			WhereFrom:      each.WhereFrom,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(userId, profile)
