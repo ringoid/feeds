@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	newFacesDefaultLimit                   = 5
-	newFacesMaxLimit                       = 100
-	newFacesTimeToLiveLimitForViewRelInSec = 60 * 5
+	newFacesDefaultLimit = 5
+	newFacesMaxLimit     = 100
 )
 
 func init() {
@@ -89,7 +88,10 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		return commons.NewServiceResponse(errStr), nil
 	}
 
-	internalNewFaces, repeatRequestAfter, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, resolution, lc)
+	//!!!WE USE HARDCODED VALUE HERE
+	limit = commons.NewFacesHardcodedLimit
+
+	internalNewFaces, repeatRequestAfter, howMuchPreparedWeNowHave, ok, errStr := getNewFaces(userId, limit, lastActionTimeInt64, resolution, lc)
 	if !ok {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
 		return commons.NewServiceResponse(errStr), nil
@@ -175,6 +177,15 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		return commons.NewServiceResponse(commons.InternalServerError), nil
 	}
 
+	//now check do we need to make new preparation for new faces
+	if howMuchPreparedWeNowHave < commons.NewFacesHardcodedLimit && repeatRequestAfter == 0 {
+		ok, errStr = prepareNewFacesAsync(userId, lc)
+		if !ok {
+			apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+			return commons.NewServiceResponse(errStr), nil
+		}
+	}
+
 	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
@@ -184,8 +195,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	return commons.NewServiceResponse(string(body)), nil
 }
 
-//response, repeat request after sec, ok and error string
-func getNewFaces(userId string, limit int, lastActionTime int64, resolution string, lc *lambdacontext.LambdaContext) ([]commons.InternalProfiles, int64, bool, string) {
+//response, repeat request after sec, how much prepared we have now, ok and error string
+func getNewFaces(userId string, limit int, lastActionTime int64, resolution string, lc *lambdacontext.LambdaContext) ([]commons.InternalProfiles, int64, int64, bool, string) {
 
 	if limit < 0 {
 		limit = newFacesDefaultLimit
@@ -203,35 +214,62 @@ func getNewFaces(userId string, limit int, lastActionTime int64, resolution stri
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
-		return nil, 0, false, commons.InternalServerError
+		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewFacesFunctionName), Payload: jsonBody})
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewFacesFunctionName, jsonBody, userId, err)
-		return nil, 0, false, commons.InternalServerError
+		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return nil, 0, false, commons.InternalServerError
+		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	var response commons.InternalGetNewFacesResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
-		return nil, 0, false, commons.InternalServerError
+		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	if lastActionTime > response.LastActionTime {
 		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
 			lastActionTime, response.LastActionTime, userId, response.LastActionTime-lastActionTime)
-		return nil, apimodel.DefaultRepeatTimeSec, true, ""
+		return nil, apimodel.DefaultRepeatTimeSec, 0, true, ""
 	}
 
 	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s] with limit [%d], resp %v", userId, limit, response)
-	return response.NewFaces, 0, true, ""
+	return response.NewFaces, 0, response.HowMuchPrepared, true, ""
+}
+
+//ok and error string
+func prepareNewFacesAsync(userId string, lc *lambdacontext.LambdaContext) (bool, string) {
+	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : send prepare new faces async request for userId [%s]", userId)
+	req := commons.InternalPrepareNewFacesReq{
+		UserId: userId,
+	}
+	jsonBody, err := json.Marshal(req)
+	if err != nil {
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
+		return false, commons.InternalServerError
+	}
+
+	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.PrepareNewFacesFunctionName), InvocationType: aws.String("Event"), Payload: jsonBody})
+	if err != nil {
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.PrepareNewFacesFunctionName, jsonBody, userId, err)
+		return false, commons.InternalServerError
+	}
+
+	if *resp.StatusCode != 202 && *resp.StatusCode != 200 {
+		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for prepare new faces request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
+		return false, commons.InternalServerError
+	}
+
+	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully send prepare new faces async request for userId [%s]", userId)
+	return true, ""
 }
 
 func main() {

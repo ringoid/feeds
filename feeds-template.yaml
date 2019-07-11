@@ -105,6 +105,9 @@ Globals:
             INTERNAL_CHAT_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, ChatFunctionExport] ]
+            INTERNAL_PREPARE_NF_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, PrepareNewFacesFunctionExport] ]
             INTERNAL_STREAM_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, InternalEventStreamExportName] ]

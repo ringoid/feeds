@@ -22,6 +22,7 @@ var MatchesFunctionName string
 var MessagesFunctionName string
 var LMHISFunctionName string
 var ChatFunctionName string
+var PrepareNewFacesFunctionName string
 var ClientLambda *lambda.Lambda
 var CommonStreamName string
 var AwsKinesisClient *kinesis.Kinesis
@@ -107,6 +108,12 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_CHAT_FUNCTION_NAME")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_CHAT_FUNCTION_NAME = [%s]", ChatFunctionName)
+
+	PrepareNewFacesFunctionName, ok = os.LookupEnv("INTERNAL_PREPARE_NF_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_PREPARE_NF_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_PREPARE_NF_FUNCTION_NAME = [%s]", PrepareNewFacesFunctionName)
 
 	CommonStreamName, ok = os.LookupEnv("COMMON_STREAM")
 	if !ok {
