@@ -3,7 +3,6 @@ test-all: clean test-deploy
 prod-all: clean prod-deploy
 
 build:
-	go get -u github.com/ringoid/commons
 	@echo '--- Building get-new-faces-feeds function ---'
 	GOOS=linux go build lambda-get-new-faces/get_new_faces.go
 	@echo '--- Building lmm-feeds function ---'
@@ -12,6 +11,8 @@ build:
 	GOOS=linux go build lambda-lmhis/lmhis.go
 	@echo '--- Building chat-feeds function ---'
 	GOOS=linux go build lambda-get-chat/chat.go
+	@echo '--- Building discover-feeds function ---'
+	GOOS=linux go build discover-function/discover.go
 
 zip_lambda: build
 	@echo '--- Zip get-new-faces-feeds function ---'
@@ -22,6 +23,8 @@ zip_lambda: build
 	zip lmhis.zip ./lmhis
 	@echo '--- Zip chat-feeds function ---'
 	zip chat.zip ./chat
+	@echo '--- Zip discover-feeds function ---'
+	zip discover.zip ./discover
 
 test-deploy: zip_lambda
 	@echo '--- Build lambda test ---'
@@ -54,4 +57,7 @@ clean:
 	rm -rf lmhis.zip
 	rm -rf chat.zip
 	rm -rf chat
+	rm -rf discover
+	rm -rf discover.zip
+
 

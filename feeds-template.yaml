@@ -48,6 +48,15 @@ Mappings:
       stage: stage-chat-feeds-tg
       prod: prod-chat-feeds-tg
 
+    DiscoverFunction:
+      test: test-discover-feeds
+      stage: stage-discover-feeds
+      prod: prod-discover-feeds
+    DiscoverFunctionTargetGroup:
+      test: test-discover-feeds-tg
+      stage: stage-discover-feeds-tg
+      prod: prod-discover-feeds-tg
+
 Parameters:
   Env:
     Type: String
@@ -273,3 +282,40 @@ Resources:
         Fn::ImportValue:
           !Join [ "-", [ !Ref Env, ListenerArnExport] ]
       Priority: 404
+
+  DiscoverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, DiscoverFunction, !Ref Env]
+      Handler: discover
+      CodeUri: ./discover.zip
+      Description: Discover feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
+
+  DiscoverTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, DiscoverFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt DiscoverFunction.Arn
+      TargetLambdaFunctionName: !Ref DiscoverFunction
+
+  DiscoverListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt DiscoverTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/discover"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 405
