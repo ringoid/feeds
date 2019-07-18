@@ -57,12 +57,11 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		return commons.NewServiceResponse(errStr), nil
 	}
 
-	//!!!WE USE HARDCODED VALUE HERE
-	limit := commons.NewFacesHardcodedLimit
+	reqParam.UserId = &userId
 
-	internalNewFaces, repeatRequestAfter, howMuchPreparedWeNowHave, ok, errStr := getNewFaces(userId, limit, *reqParam.LastActionTime, *reqParam.Resolution, lc)
+	internalNewFaces, repeatRequestAfter, _, ok, errStr := discover(reqParam, lc)
 	if !ok {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+		apimodel.Anlogger.Errorf(lc, "discover.go : userId [%s], return %s to client", userId, errStr)
 		return commons.NewServiceResponse(errStr), nil
 	}
 
@@ -88,7 +87,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		}
 
 		if len(photos) == 0 {
-			apimodel.Anlogger.Warnf(lc, "get_new_faces.go : get new faces return user [%s] with empty photo list for resolution [%s] for userId [%s]",
+			apimodel.Anlogger.Warnf(lc, "discover.go : discover return user [%s] with empty photo list for resolution [%s] for userId [%s]",
 				each.UserId, *reqParam.Resolution, userId)
 			continue
 		}
@@ -128,7 +127,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 		targetIds = append(targetIds, each.UserId)
 	}
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : prepare [%d] new faces profiles for userId [%s]", len(profiles), userId)
+	apimodel.Anlogger.Debugf(lc, "discover.go : prepare [%d] discover profiles for userId [%s]", len(profiles), userId)
 
 	feedResp.Profiles = profiles
 
@@ -141,32 +140,32 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 	body, err := json.Marshal(feedResp)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, commons.InternalServerError)
+		apimodel.Anlogger.Errorf(lc, "discover.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
+		apimodel.Anlogger.Errorf(lc, "discover.go : userId [%s], return %s to client", userId, commons.InternalServerError)
 		return commons.NewServiceResponse(commons.InternalServerError), nil
 	}
 
 	//now check do we need to make new preparation for new faces
-	if howMuchPreparedWeNowHave < commons.NewFacesHardcodedLimit && repeatRequestAfter == 0 {
-		ok, errStr = prepareNewFacesAsync(userId, lc)
-		if !ok {
-			apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
-			return commons.NewServiceResponse(errStr), nil
-		}
-	}
+	//if howMuchPreparedWeNowHave < commons.NewFacesHardcodedLimit && repeatRequestAfter == 0 {
+	//	ok, errStr = prepareNewFacesAsync(userId, lc)
+	//	if !ok {
+	//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : userId [%s], return %s to client", userId, errStr)
+	//		return commons.NewServiceResponse(errStr), nil
+	//	}
+	//}
 
-	event := commons.NewProfileWasReturnToNewFacesEvent(userId, sourceIp, targetIds, feedResp.RepeatRequestAfter)
+	event := commons.NewProfileWasReturnToDiscoverEvent(userId, sourceIp, len(targetIds), feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
-	apimodel.Anlogger.Infof(lc, "get_new_faces.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, 0)
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : return successful resp [%s] for userId [%s]", string(body), userId)
+	apimodel.Anlogger.Infof(lc, "discover.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, 0)
+	apimodel.Anlogger.Debugf(lc, "discover.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
-func parseParams(params string, lc *lambdacontext.LambdaContext) (*apimodel.DiscoverRequest, bool, string) {
+func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.DiscoverRequest, bool, string) {
 	apimodel.Anlogger.Debugf(lc, "discover.go : parse request body %s", params)
 
-	var req apimodel.DiscoverRequest
+	var req commons.DiscoverRequest
 	err := json.Unmarshal([]byte(params), &req)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "discover.go : error marshaling required params from the string [%s] : %v", params, err)
@@ -241,78 +240,67 @@ func main() {
 }
 
 //response, repeat request after sec, how much prepared we have now, ok and error string
-func getNewFaces(userId string, limit int, lastActionTime int64, resolution string, lc *lambdacontext.LambdaContext) ([]commons.InternalProfiles, int64, int64, bool, string) {
+func discover(request *commons.DiscoverRequest, lc *lambdacontext.LambdaContext) ([]commons.InternalProfiles, int64, int64, bool, string) {
 
-	if limit < 0 {
-		limit = newFacesDefaultLimit
-	} else if limit > newFacesMaxLimit {
-		limit = newFacesMaxLimit
-	}
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : get new faces for userId [%s] with limit [%d]", userId, limit)
+	apimodel.Anlogger.Debugf(lc, "discover.go : discover for userId [%s] with limit [%d]", *request.UserId, *request.Limit)
 
-	req := commons.InternalGetNewFacesReq{
-		UserId:         userId,
-		Limit:          limit,
-		LastActionTime: lastActionTime,
-		Resolution:     resolution,
-	}
-	jsonBody, err := json.Marshal(req)
+	jsonBody, err := json.Marshal(request)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
+		apimodel.Anlogger.Errorf(lc, "discover.go : error marshaling req %s into json for userId [%s] : %v", request, *request.UserId, err)
 		return nil, 0, 0, false, commons.InternalServerError
 	}
 
-	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.GetNewFacesFunctionName), Payload: jsonBody})
+	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.DiscoverFunctionName), Payload: jsonBody})
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.GetNewFacesFunctionName, jsonBody, userId, err)
+		apimodel.Anlogger.Errorf(lc, "discover.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.DiscoverFunctionName, jsonBody, *request.UserId, err)
 		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
+		apimodel.Anlogger.Errorf(lc, "discover.go : status code = %d, response body %s for request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, *request.UserId)
 		return nil, 0, 0, false, commons.InternalServerError
 	}
 
 	var response commons.InternalGetNewFacesResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), userId, err)
+		apimodel.Anlogger.Errorf(lc, "discover.go : error unmarshaling response %s into json for userId [%s] : %v", string(resp.Payload), *request.UserId, err)
 		return nil, 0, 0, false, commons.InternalServerError
 	}
 
-	if lastActionTime > response.LastActionTime {
-		apimodel.Anlogger.Debugf(lc, "get_new_faces.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
-			lastActionTime, response.LastActionTime, userId, response.LastActionTime-lastActionTime)
+	if *request.LastActionTime > response.LastActionTime {
+		apimodel.Anlogger.Debugf(lc, "discover.go : requested lastActionTime [%d] > actual lastActionTime [%d] for userId [%s], diff is [%d]",
+			*request.LastActionTime, response.LastActionTime, *request.UserId, response.LastActionTime - *request.LastActionTime)
 		return nil, apimodel.DefaultRepeatTimeSec, 0, true, ""
 	}
 
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully got new faces for userId [%s] with limit [%d], resp %v", userId, limit, response)
+	apimodel.Anlogger.Debugf(lc, "discover.go : successfully got profiles for userId [%s] with limit [%d], resp %v", *request.UserId, *request.Limit, response)
 	return response.NewFaces, 0, response.HowMuchPrepared, true, ""
 }
 
 //ok and error string
-func prepareNewFacesAsync(userId string, lc *lambdacontext.LambdaContext) (bool, string) {
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : send prepare new faces async request for userId [%s]", userId)
-	req := commons.InternalPrepareNewFacesReq{
-		UserId: userId,
-	}
-	jsonBody, err := json.Marshal(req)
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
-		return false, commons.InternalServerError
-	}
-
-	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.PrepareNewFacesFunctionName), InvocationType: aws.String("Event"), Payload: jsonBody})
-	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.PrepareNewFacesFunctionName, jsonBody, userId, err)
-		return false, commons.InternalServerError
-	}
-
-	if *resp.StatusCode != 202 && *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for prepare new faces request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-		return false, commons.InternalServerError
-	}
-
-	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully send prepare new faces async request for userId [%s]", userId)
-	return true, ""
-}
+//func prepareNewFacesAsync(userId string, lc *lambdacontext.LambdaContext) (bool, string) {
+//	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : send prepare new faces async request for userId [%s]", userId)
+//	req := commons.InternalPrepareNewFacesReq{
+//		UserId: userId,
+//	}
+//	jsonBody, err := json.Marshal(req)
+//	if err != nil {
+//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
+//		return false, commons.InternalServerError
+//	}
+//
+//	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.PrepareNewFacesFunctionName), InvocationType: aws.String("Event"), Payload: jsonBody})
+//	if err != nil {
+//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.PrepareNewFacesFunctionName, jsonBody, userId, err)
+//		return false, commons.InternalServerError
+//	}
+//
+//	if *resp.StatusCode != 202 && *resp.StatusCode != 200 {
+//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for prepare new faces request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
+//		return false, commons.InternalServerError
+//	}
+//
+//	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully send prepare new faces async request for userId [%s]", userId)
+//	return true, ""
+//}

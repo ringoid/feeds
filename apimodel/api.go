@@ -57,17 +57,3 @@ type ChatFeedResponse struct {
 func (resp ChatFeedResponse) String() string {
 	return fmt.Sprintf("%#v", resp)
 }
-
-type DiscoverRequest struct {
-	AccessToken    *string         `json:"accessToken"`
-	Resolution     *string         `json:"resolution"`
-	LastActionTime *int64          `json:"lastActionTime"`
-	Limit          *int            `json:"limit"`
-	Filter         *DiscoverFilter `json:"filter"`
-}
-
-type DiscoverFilter struct {
-	MinAge      *int `json:"minAge"`
-	MaxAge      *int `json:"MaxAge"`
-	MaxDistance *int `json:"maxDistance"`
-}

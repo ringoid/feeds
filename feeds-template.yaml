@@ -99,6 +99,9 @@ Globals:
             INTERNAL_GET_NEW_FACES_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, NewFacesFunctionExport] ]
+            INTERNAL_DISCOVER_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, DiscoverFunctionExport] ]
             INTERNAL_LIKES_YOU_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, LikesYouFunctionExport] ]

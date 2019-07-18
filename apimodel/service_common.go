@@ -17,6 +17,7 @@ import (
 var Anlogger *commons.Logger
 var InternalAuthFunctionName string
 var GetNewFacesFunctionName string
+var DiscoverFunctionName string
 var LikesYouFunctionName string
 var MatchesFunctionName string
 var MessagesFunctionName string
@@ -78,6 +79,12 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_NEW_FACES_FUNCTION_NAME")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_GET_NEW_FACES_FUNCTION_NAME = [%s]", GetNewFacesFunctionName)
+
+	DiscoverFunctionName, ok = os.LookupEnv("INTERNAL_DISCOVER_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_DISCOVER_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_DISCOVER_FUNCTION_NAME = [%s]", DiscoverFunctionName)
 
 	LikesYouFunctionName, ok = os.LookupEnv("INTERNAL_LIKES_YOU_FUNCTION_NAME")
 	if !ok {
