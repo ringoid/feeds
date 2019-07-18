@@ -289,7 +289,7 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 			if sl == "ru" || sl == "be" || sl == "ua" {
 				lastOnlineText = "Вчера"
 			}
-		} else if diff > 172800000 && diff <= 345600000 { //48h < 4 d
+		} else if diff > 172800000 && diff <= 1814400000 { //48h < 21 d
 			localD := "d ago"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
@@ -333,7 +333,7 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 		Anlogger.Debugf(lc, "service_common.go : distance is [%v]", distance)
 		if distance <= 1000 {
 			distanceText = "1 "
-		} else if distance > 1000 && distance <= 100000 {
+		} else if distance > 1000 && distance <= 500000 {
 			distanceText = fmt.Sprintf("%d", int(distance/1000))
 		} else {
 			distanceText = "unknown"
