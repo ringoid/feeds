@@ -32,6 +32,19 @@ func (resp LMMFeedResp) String() string {
 	return fmt.Sprintf("%#v", resp)
 }
 
+type GetLcFeedResp struct {
+	commons.BaseResponse
+	RepeatRequestAfter     int64             `json:"repeatRequestAfter"`
+	AllLikesYouProfilesNum int               `json:"allLikesYouProfilesNum"`
+	AllMessagesProfilesNum int               `json:"allMessagesProfilesNum"`
+	LikesYou               []commons.Profile `json:"likesYou"`
+	Messages               []commons.Profile `json:"messages"`
+}
+
+func (resp GetLcFeedResp) String() string {
+	return fmt.Sprintf("%#v", resp)
+}
+
 type LMHISFeedResp struct {
 	commons.BaseResponse
 	LikesYou           []commons.Profile `json:"likesYou"`

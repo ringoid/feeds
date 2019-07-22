@@ -13,6 +13,8 @@ build:
 	GOOS=linux go build lambda-get-chat/chat.go
 	@echo '--- Building discover-feeds function ---'
 	GOOS=linux go build discover-function/discover.go
+	@echo '--- Building get-lc-feeds function ---'
+	GOOS=linux go build get-lc-function/get_lc.go
 
 zip_lambda: build
 	@echo '--- Zip get-new-faces-feeds function ---'
@@ -25,6 +27,8 @@ zip_lambda: build
 	zip chat.zip ./chat
 	@echo '--- Zip discover-feeds function ---'
 	zip discover.zip ./discover
+	@echo '--- Zip get-lc-feeds function ---'
+	zip get_lc.zip ./get_lc
 
 test-deploy: zip_lambda
 	@echo '--- Build lambda test ---'
@@ -59,5 +63,5 @@ clean:
 	rm -rf chat
 	rm -rf discover
 	rm -rf discover.zip
-
-
+	rm -rf get_lc
+	rm -rf get_lc.zip

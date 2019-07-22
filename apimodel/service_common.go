@@ -18,6 +18,8 @@ var Anlogger *commons.Logger
 var InternalAuthFunctionName string
 var GetNewFacesFunctionName string
 var DiscoverFunctionName string
+var GetLcLikesFunctionName string
+var GetLcMessagesFunctionName string
 var LikesYouFunctionName string
 var MatchesFunctionName string
 var MessagesFunctionName string
@@ -85,6 +87,18 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_DISCOVER_FUNCTION_NAME")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_DISCOVER_FUNCTION_NAME = [%s]", DiscoverFunctionName)
+
+	GetLcLikesFunctionName, ok = os.LookupEnv("INTERNAL_GET_LC_LIKES_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_LC_LIKES_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_GET_LC_LIKES_FUNCTION_NAME = [%s]", GetLcLikesFunctionName)
+
+	GetLcMessagesFunctionName, ok = os.LookupEnv("INTERNAL_GET_LC_MSG_FUNCTION_NAME")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty INTERNAL_GET_LC_MSG_FUNCTION_NAME")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with INTERNAL_GET_LC_MSG_FUNCTION_NAME = [%s]", GetLcMessagesFunctionName)
 
 	LikesYouFunctionName, ok = os.LookupEnv("INTERNAL_LIKES_YOU_FUNCTION_NAME")
 	if !ok {
@@ -226,6 +240,18 @@ func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.Lamb
 		resp.Messages[index].DefaultSortingOrderPosition = index
 	}
 	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
+	return resp
+}
+
+func MarkLCDefaultSort(userId string, resp *GetLcFeedResp, lc *lambdacontext.LambdaContext) *GetLcFeedResp {
+	Anlogger.Debugf(lc, "service_common.go : mark get_lc resp by default sort for userId [%s]", userId)
+	for index := range resp.LikesYou {
+		resp.LikesYou[index].DefaultSortingOrderPosition = index
+	}
+	for index := range resp.Messages {
+		resp.Messages[index].DefaultSortingOrderPosition = index
+	}
+	Anlogger.Debugf(lc, "service_common.go : successfully mark get_lc resp by default sort for userId [%s]", userId)
 	return resp
 }
 

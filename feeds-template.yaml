@@ -57,6 +57,15 @@ Mappings:
       stage: stage-discover-feeds-tg
       prod: prod-discover-feeds-tg
 
+    GetLcFunction:
+      test: test-get-lc-feeds
+      stage: stage-get-lc-feeds
+      prod: prod-get-lc-feeds
+    GetLcFunctionTargetGroup:
+      test: test-get-lc-feeds-tg
+      stage: stage-get-lc-feeds-tg
+      prod: prod-get-lc-feeds-tg
+
 Parameters:
   Env:
     Type: String
@@ -102,6 +111,12 @@ Globals:
             INTERNAL_DISCOVER_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, DiscoverFunctionExport] ]
+            INTERNAL_GET_LC_MSG_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, GetLcMessagesFunctionExport] ]
+            INTERNAL_GET_LC_LIKES_FUNCTION_NAME:
+              Fn::ImportValue:
+                !Join [ "-", [ !Ref Env, GetLcLikesFunctionExport] ]
             INTERNAL_LIKES_YOU_FUNCTION_NAME:
               Fn::ImportValue:
                 !Join [ "-", [ !Ref Env, LikesYouFunctionExport] ]
@@ -322,3 +337,40 @@ Resources:
         Fn::ImportValue:
           !Join [ "-", [ !Ref Env, ListenerArnExport] ]
       Priority: 405
+
+  GetLcFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !FindInMap [FunctionName, GetLcFunction, !Ref Env]
+      Handler: get_lc
+      CodeUri: ./get_lc.zip
+      Description: Get lc feeds function
+      Policies:
+        - AWSLambdaFullAccess
+        - AmazonKinesisFirehoseFullAccess
+        - CloudWatchFullAccess
+
+  GetLcTargetGroup:
+    Type: Custom::CreateTargetGroup
+    Properties:
+      ServiceToken:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, CustomResourceFunctionExport] ]
+      CustomName: !FindInMap [FunctionName, GetLcFunctionTargetGroup, !Ref Env]
+      CustomTargetsId: !GetAtt GetLcFunction.Arn
+      TargetLambdaFunctionName: !Ref GetLcFunction
+
+  GetLcListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !GetAtt GetLcTargetGroup.TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/feeds/get_lc"
+      ListenerArn:
+        Fn::ImportValue:
+          !Join [ "-", [ !Ref Env, ListenerArnExport] ]
+      Priority: 406
