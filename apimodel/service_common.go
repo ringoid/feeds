@@ -315,21 +315,13 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 			if sl == "ru" || sl == "be" || sl == "ua" {
 				lastOnlineText = "Вчера"
 			}
-		} else if diff > 172800000 && diff <= 1814400000 { //48h < 21 d
+		} else if diff > 172800000 { //48h
 			localD := "d ago"
 			sl := strings.ToLower(sourceLocale)
 			if sl == "ru" || sl == "be" || sl == "ua" {
 				localD = "д назад"
 			}
 			lastOnlineText = fmt.Sprintf("%v%s", diff/86400000, localD)
-		} else {
-			lastOnlineText = "unknown"
-			lastOnlineFlag = "unknown"
-			//lastOnlineText = "7+ days ago"
-			//sl := strings.ToLower(sourceLocale)
-			//if sl == "ru" || sl == "be" || sl == "ua" {
-			//	lastOnlineText = "Больше недели назад"
-			//}
 		}
 
 		if lastOnlineFlag != "unknown" {
@@ -352,17 +344,15 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 	Anlogger.Debugf(lc, "service_common.go : transform request [%v] to distance text for userId [%s]", internal, userId)
 	var distanceText string
 	if !internal.LocationExist {
-		Anlogger.Debugf(lc, "service_common.go : one of the cordinates < 0, so set unknown distance text")
+		Anlogger.Debugf(lc, "service_common.go : one of the coordinates < 0, so set unknown distance text")
 		distanceText = "unknown"
 	} else {
 		distance := Distance(Point(internal.Lat, internal.Lon), Point(internal.SourceLat, internal.SourceLon))
 		Anlogger.Debugf(lc, "service_common.go : distance is [%v]", distance)
 		if distance <= 1000 {
 			distanceText = "1 "
-		} else if distance > 1000 && distance <= 500000 {
+		} else if distance > 1000 {
 			distanceText = fmt.Sprintf("%d", int(distance/1000))
-		} else {
-			distanceText = "unknown"
 		}
 	}
 	if distanceText != "unknown" {
