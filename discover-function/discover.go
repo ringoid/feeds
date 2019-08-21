@@ -153,11 +153,11 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//		return commons.NewServiceResponse(errStr), nil
 	//	}
 	//}
-
-	event := commons.NewProfileWasReturnToDiscoverEvent(userId, sourceIp, len(targetIds), feedResp.RepeatRequestAfter)
+	minA, maxA, maxD := filterString(reqParam)
+	event := commons.NewProfileWasReturnToDiscoverEvent(userId, sourceIp, len(targetIds), minA, maxA, maxD, feedResp.RepeatRequestAfter)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
-	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
-	apimodel.Anlogger.Infof(lc, "discover.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, 0)
+	apimodel.Anlogger.Infof(lc, "discover.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], minAge [%d], maxAge [%d], maxDistance [%d], duration [%v]",
+		feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, minA, maxA, maxD, 0)
 	apimodel.Anlogger.Debugf(lc, "discover.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
@@ -235,6 +235,27 @@ func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.Disco
 	return &req, true, ""
 }
 
+//return minAge, maxAge, maxDistance
+func filterString(req *commons.DiscoverRequest) (int, int, int) {
+	var minA, maxA, maxD = 18, 56, 15001
+	if req.Filter == nil {
+		return minA, maxA, maxD
+	}
+
+	if req.Filter.MinAge != nil {
+		minA = *req.Filter.MinAge
+	}
+
+	if req.Filter.MaxAge != nil {
+		maxA = *req.Filter.MaxAge
+	}
+
+	if req.Filter.MaxDistance != nil {
+		maxD = *req.Filter.MaxDistance
+	}
+	return minA, maxA, maxD
+}
+
 func main() {
 	basicLambda.Start(handler)
 }
@@ -277,30 +298,3 @@ func discover(request *commons.DiscoverRequest, lc *lambdacontext.LambdaContext)
 	apimodel.Anlogger.Debugf(lc, "discover.go : successfully got profiles for userId [%s] with limit [%d], resp %v", *request.UserId, *request.Limit, response)
 	return response.NewFaces, 0, response.HowMuchPrepared, true, ""
 }
-
-//ok and error string
-//func prepareNewFacesAsync(userId string, lc *lambdacontext.LambdaContext) (bool, string) {
-//	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : send prepare new faces async request for userId [%s]", userId)
-//	req := commons.InternalPrepareNewFacesReq{
-//		UserId: userId,
-//	}
-//	jsonBody, err := json.Marshal(req)
-//	if err != nil {
-//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error marshaling req %s into json for userId [%s] : %v", req, userId, err)
-//		return false, commons.InternalServerError
-//	}
-//
-//	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(apimodel.PrepareNewFacesFunctionName), InvocationType: aws.String("Event"), Payload: jsonBody})
-//	if err != nil {
-//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : error invoke function [%s] with body %s for userId [%s] : %v", apimodel.PrepareNewFacesFunctionName, jsonBody, userId, err)
-//		return false, commons.InternalServerError
-//	}
-//
-//	if *resp.StatusCode != 202 && *resp.StatusCode != 200 {
-//		apimodel.Anlogger.Errorf(lc, "get_new_faces.go : status code = %d, response body %s for prepare new faces request %s, for userId [%s] ", *resp.StatusCode, string(resp.Payload), jsonBody, userId)
-//		return false, commons.InternalServerError
-//	}
-//
-//	apimodel.Anlogger.Debugf(lc, "get_new_faces.go : successfully send prepare new faces async request for userId [%s]", userId)
-//	return true, ""
-//}
