@@ -127,6 +127,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		TikTok:         internalChat.Profile.TikTok,
 		WhereLive:      internalChat.Profile.WhereLive,
 		WhereFrom:      internalChat.Profile.WhereFrom,
+		StatusText:     internalChat.Profile.StatusText,
 	}
 
 	profile = apimodel.CheckProfileBeforeResponse(userId, profile)

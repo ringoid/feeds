@@ -119,6 +119,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			TikTok:         each.TikTok,
 			WhereLive:      each.WhereLive,
 			WhereFrom:      each.WhereFrom,
+			StatusText:     each.StatusText,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(userId, profile)

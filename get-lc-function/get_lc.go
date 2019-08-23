@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	getLcEachFeedMaxLimit = 500
+	getLcEachFeedMaxLimit = 150
 )
 
 func init() {
@@ -24,25 +24,25 @@ func init() {
 
 func getLc(request *commons.GetLCRequest, functionName string, lc *lambdacontext.LambdaContext) (*commons.InternalGetLCResp, bool, string) {
 
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : get lc (function name %s) you for userId [%s]",
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : get lc (function name %s) you for userId [%s]",
 		functionName, *request.UserId)
 
 	jsonBody, err := json.Marshal(request)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : error marshaling req %s into json for userId [%s] (function name %s) : %v",
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : error marshaling req %s into json for userId [%s] (function name %s) : %v",
 			request, *request.UserId, functionName, err)
 		return nil, false, commons.InternalServerError
 	}
 
 	resp, err := apimodel.ClientLambda.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: jsonBody})
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : error invoke function [%s] with body %s for userId [%s] : %v",
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : error invoke function [%s] with body %s for userId [%s] : %v",
 			functionName, jsonBody, *request.UserId, err)
 		return nil, false, commons.InternalServerError
 	}
 
 	if *resp.StatusCode != 200 {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : status code = %d, response body %s for request %s, for userId [%s] (function name %s",
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : status code = %d, response body %s for request %s, for userId [%s] (function name %s",
 			*resp.StatusCode, string(resp.Payload), jsonBody, *request.UserId, functionName)
 		return nil, false, commons.InternalServerError
 	}
@@ -50,12 +50,12 @@ func getLc(request *commons.GetLCRequest, functionName string, lc *lambdacontext
 	var response commons.InternalGetLCResp
 	err = json.Unmarshal(resp.Payload, &response)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : error unmarshaling response %s into json for userId [%s] (function name %s) : %v",
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : error unmarshaling response %s into json for userId [%s] (function name %s) : %v",
 			string(resp.Payload), request.UserId, functionName, err)
 		return nil, false, commons.InternalServerError
 	}
 
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : successfully got profiles for userId [%s] (function name %s), resp %v",
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully got profiles for userId [%s] (function name %s), resp %v",
 		*request.UserId, functionName, response)
 	return &response, true, ""
 }
@@ -87,7 +87,7 @@ func handleJob(request *commons.GetLCRequest, isItLikes bool,
 	if *request.LastActionTime > internalGetLcResponse.LastActionTime {
 		innerResult.Ok = true
 		innerResult.GetLcFeedResp.RepeatRequestAfter = apimodel.DefaultRepeatTimeSec
-		apimodel.Anlogger.Debugf(lc, "git_lc.go : (%s) requested lastAction time [%v] > actual last actionTime [%v], diff [%v]",
+		apimodel.Anlogger.Debugf(lc, "get_lc.go : (%s) requested lastAction time [%v] > actual last actionTime [%v], diff [%v]",
 			functionName, *request.LastActionTime, internalGetLcResponse.LastActionTime, internalGetLcResponse.LastActionTime - *request.LastActionTime)
 		return
 	}
@@ -111,7 +111,7 @@ func handleJob(request *commons.GetLCRequest, isItLikes bool,
 		}
 
 		if len(photos) == 0 {
-			apimodel.Anlogger.Warnf(lc, "git_lc.go : lc return user [%s] with empty photo list for resolution [%s] for userId [%s]",
+			apimodel.Anlogger.Warnf(lc, "get_lc.go : lc return user [%s] with empty photo list for resolution [%s] for userId [%s]",
 				each.UserId, *request.Resolution, *request.UserId)
 			continue
 		}
@@ -145,24 +145,25 @@ func handleJob(request *commons.GetLCRequest, isItLikes bool,
 			TikTok:         each.TikTok,
 			WhereLive:      each.WhereLive,
 			WhereFrom:      each.WhereFrom,
+			StatusText:     each.StatusText,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(*request.UserId, profile)
 
 		profiles = append(profiles, profile)
 	}
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : prepare [%d] lc profiles for userId [%s]", len(profiles), *request.UserId)
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : prepare [%d] lc profiles for userId [%s]", len(profiles), *request.UserId)
 
 	innerResult.Ok = true
 
 	if isItLikes {
 		innerResult.GetLcFeedResp.LikesYou = profiles
 		innerResult.GetLcFeedResp.AllLikesYouProfilesNum = internalGetLcResponse.AllProfilesNum
-		apimodel.Anlogger.Debugf(lc, "git_lc.go : set all likes you profile num to [%d] for userId [%s]", innerResult.GetLcFeedResp.AllLikesYouProfilesNum)
+		apimodel.Anlogger.Debugf(lc, "get_lc.go : set all likes you profile num to [%d] for userId [%s]", innerResult.GetLcFeedResp.AllLikesYouProfilesNum)
 	} else {
 		innerResult.GetLcFeedResp.Messages = profiles
 		innerResult.GetLcFeedResp.AllMessagesProfilesNum = internalGetLcResponse.AllProfilesNum
-		apimodel.Anlogger.Debugf(lc, "git_lc.go : set all messages/matches num to [%d] for userId [%s]", innerResult.GetLcFeedResp.AllMessagesProfilesNum)
+		apimodel.Anlogger.Debugf(lc, "get_lc.go : set all messages/matches num to [%d] for userId [%s]", innerResult.GetLcFeedResp.AllMessagesProfilesNum)
 	}
 	return
 }
@@ -182,17 +183,17 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	}
 	sourceIp := request.Headers["x-forwarded-for"]
 
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : start handle request %v", request)
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : start handle request %v", request)
 
 	appVersion, isItAndroid, ok, errStr := commons.ParseAppVersionFromHeaders(request.Headers, apimodel.Anlogger, lc)
 	if !ok {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : return %s to client", errStr)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : return %s to client", errStr)
 		return commons.NewServiceResponse(errStr), nil
 	}
 
 	reqParam, ok, errStr := parseParams(request.Body, lc)
 	if !ok {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : return %s to client", errStr)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : return %s to client", errStr)
 		return commons.NewServiceResponse(errStr), nil
 	}
 
@@ -202,7 +203,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		apimodel.InternalAuthFunctionName, apimodel.ClientLambda, apimodel.Anlogger, lc)
 
 	if !ok {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : return %s to client", errStr)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : return %s to client", errStr)
 		return commons.NewServiceResponse(errStr), nil
 	}
 
@@ -228,16 +229,16 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	commonWaitGroup.Wait()
 
 	if !likeYouTmpResult.Ok {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : userId [%s], return %s to client", userId, likeYouTmpResult.ErrorStr)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : userId [%s], return %s to client", userId, likeYouTmpResult.ErrorStr)
 		return commons.NewServiceResponse(likeYouTmpResult.ErrorStr), nil
 	}
 	if !messagesTmpResult.Ok {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : userId [%s], return %s to client", userId, messagesTmpResult.ErrorStr)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : userId [%s], return %s to client", userId, messagesTmpResult.ErrorStr)
 		return commons.NewServiceResponse(messagesTmpResult.ErrorStr), nil
 	}
 
 	if likeYouTmpResult.GetLcFeedResp.RepeatRequestAfter != 0 || messagesTmpResult.GetLcFeedResp.RepeatRequestAfter != 0 {
-		apimodel.Anlogger.Debugf(lc, "git_lc.go : return repeat request after [%v] for userId [%s]", apimodel.DefaultRepeatTimeSec, userId)
+		apimodel.Anlogger.Debugf(lc, "get_lc.go : return repeat request after [%v] for userId [%s]", apimodel.DefaultRepeatTimeSec, userId)
 		feedResp.RepeatRequestAfter = apimodel.DefaultRepeatTimeSec
 	} else {
 		feedResp.LikesYou = append(feedResp.LikesYou, likeYouTmpResult.GetLcFeedResp.LikesYou...)
@@ -252,8 +253,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 	body, err := json.Marshal(feedResp)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : userId [%s], return %s to client", userId, commons.InternalServerError)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : userId [%s], return %s to client", userId, commons.InternalServerError)
 		return commons.NewServiceResponse(commons.InternalServerError), nil
 	}
 
@@ -261,48 +262,48 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 
 	finishTime := commons.UnixTimeInMillis()
-	apimodel.Anlogger.Infof(lc, "git_lc.go : successfully return repeat request after [%v], [%d] likes you profiles and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Messages), userId, finishTime-startTime)
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : return successful resp [%s] for userId [%s]", string(body), userId)
+	apimodel.Anlogger.Infof(lc, "get_lc.go : successfully return repeat request after [%v], [%d] likes you profiles and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Messages), userId, finishTime-startTime)
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
 func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.GetLCRequest, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : parse request body %s", params)
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : parse request body %s", params)
 
 	var req commons.GetLCRequest
 	err := json.Unmarshal([]byte(params), &req)
 	if err != nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : error marshaling required params from the string [%s] : %v", params, err)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : error marshaling required params from the string [%s] : %v", params, err)
 		return nil, false, commons.InternalServerError
 	}
 
 	if req.AccessToken == nil || len(*req.AccessToken) == 0 {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : accessToken is empty, request [%v]", req)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : accessToken is empty, request [%v]", req)
 		return nil, false, commons.WrongRequestParamsClientError
 	}
 
 	if req.Resolution == nil || len(*req.Resolution) == 0 {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : resolution is empty, request [%v]", req)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : resolution is empty, request [%v]", req)
 		return nil, false, commons.WrongRequestParamsClientError
 	}
 
 	if !commons.AllowedPhotoResolution[*req.Resolution] {
-		apimodel.Anlogger.Warnf(lc, "git_lc.go : resolution [%s] is not supported, so use [%s] resolution", *req.Resolution, commons.BiggestDefaultPhotoResolution)
+		apimodel.Anlogger.Warnf(lc, "get_lc.go : resolution [%s] is not supported, so use [%s] resolution", *req.Resolution, commons.BiggestDefaultPhotoResolution)
 		req.Resolution = &commons.BiggestDefaultPhotoResolution
 	}
 
 	if req.LastActionTime == nil || *req.LastActionTime < 0 {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : lastActionTime is empty or less than zero, request [%v]", req)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : lastActionTime is empty or less than zero, request [%v]", req)
 		return nil, false, commons.WrongRequestParamsClientError
 	}
 
 	if req.Source == nil {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : source is empty, request [%v]", req)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : source is empty, request [%v]", req)
 		return nil, false, commons.WrongRequestParamsClientError
 	}
 
 	if _, ok := commons.FeedNames[*req.Source]; !ok && *req.Source != "profile" {
-		apimodel.Anlogger.Errorf(lc, "git_lc.go : source contains unsupported value, request [%v]", req)
+		apimodel.Anlogger.Errorf(lc, "get_lc.go : source contains unsupported value, request [%v]", req)
 		return nil, false, commons.WrongRequestParamsClientError
 	}
 
@@ -335,7 +336,7 @@ func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.GetLC
 	lim := getLcEachFeedMaxLimit
 	req.Limit = &lim
 
-	apimodel.Anlogger.Debugf(lc, "git_lc.go : successfully parse request [%v]", req)
+	apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully parse request [%v]", req)
 	return &req, true, ""
 }
 
