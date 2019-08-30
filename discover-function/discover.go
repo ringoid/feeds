@@ -159,12 +159,12 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
 	apimodel.Anlogger.Infof(lc, "discover.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], minAge [%d], maxAge [%d], maxDistance [%d], duration [%v]",
 		feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, minA, maxA, maxD, 0)
-	apimodel.Anlogger.Debugf(lc, "discover.go : return successful resp [%s] for userId [%s]", string(body), userId)
+	//apimodel.Anlogger.Debugf(lc, "discover.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
 func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.DiscoverRequest, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "discover.go : parse request body %s", params)
+	//apimodel.Anlogger.Debugf(lc, "discover.go : parse request body %s", params)
 
 	var req commons.DiscoverRequest
 	err := json.Unmarshal([]byte(params), &req)
@@ -232,7 +232,7 @@ func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.Disco
 		req.Limit = &lim
 	}
 
-	apimodel.Anlogger.Debugf(lc, "discover.go : successfully parse request [%v]", req)
+	//apimodel.Anlogger.Debugf(lc, "discover.go : successfully parse request [%v]", req)
 	return &req, true, ""
 }
 
@@ -296,6 +296,6 @@ func discover(request *commons.DiscoverRequest, lc *lambdacontext.LambdaContext)
 		return nil, apimodel.DefaultRepeatTimeSec, 0, true, ""
 	}
 
-	apimodel.Anlogger.Debugf(lc, "discover.go : successfully got profiles for userId [%s] with limit [%d], resp %v", *request.UserId, *request.Limit, response)
+	//apimodel.Anlogger.Debugf(lc, "discover.go : successfully got profiles for userId [%s] with limit [%d], resp %v", *request.UserId, *request.Limit, response)
 	return response.NewFaces, 0, response.HowMuchPrepared, true, ""
 }

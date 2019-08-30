@@ -220,16 +220,16 @@ func CheckProfileBeforeResponse(userId string, prof commons.Profile) (commons.Pr
 }
 
 func MarkNewFacesDefaultSort(userId string, resp *GetNewFacesFeedResp, lc *lambdacontext.LambdaContext) *GetNewFacesFeedResp {
-	Anlogger.Debugf(lc, "service_common.go : mark new faces resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : mark new faces resp by default sort for userId [%s]", userId)
 	for index := range resp.Profiles {
 		resp.Profiles[index].DefaultSortingOrderPosition = index
 	}
-	Anlogger.Debugf(lc, "service_common.go : successfully mark new faces resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully mark new faces resp by default sort for userId [%s]", userId)
 	return resp
 }
 
 func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.LambdaContext) *LMMFeedResp {
-	Anlogger.Debugf(lc, "service_common.go : mark lmm resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : mark lmm resp by default sort for userId [%s]", userId)
 	for index := range resp.LikesYou {
 		resp.LikesYou[index].DefaultSortingOrderPosition = index
 	}
@@ -239,24 +239,24 @@ func MarkLMMDefaultSort(userId string, resp *LMMFeedResp, lc *lambdacontext.Lamb
 	for index := range resp.Messages {
 		resp.Messages[index].DefaultSortingOrderPosition = index
 	}
-	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
 	return resp
 }
 
 func MarkLCDefaultSort(userId string, resp *GetLcFeedResp, lc *lambdacontext.LambdaContext) *GetLcFeedResp {
-	Anlogger.Debugf(lc, "service_common.go : mark get_lc resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : mark get_lc resp by default sort for userId [%s]", userId)
 	for index := range resp.LikesYou {
 		resp.LikesYou[index].DefaultSortingOrderPosition = index
 	}
 	for index := range resp.Messages {
 		resp.Messages[index].DefaultSortingOrderPosition = index
 	}
-	Anlogger.Debugf(lc, "service_common.go : successfully mark get_lc resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully mark get_lc resp by default sort for userId [%s]", userId)
 	return resp
 }
 
 func MarkLMHISDefaultSort(userId string, resp *LMHISFeedResp, lc *lambdacontext.LambdaContext) *LMHISFeedResp {
-	Anlogger.Debugf(lc, "service_common.go : mark lmhis resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : mark lmhis resp by default sort for userId [%s]", userId)
 	for index := range resp.LikesYou {
 		resp.LikesYou[index].DefaultSortingOrderPosition = index
 	}
@@ -272,18 +272,18 @@ func MarkLMHISDefaultSort(userId string, resp *LMHISFeedResp, lc *lambdacontext.
 	for index := range resp.Sent {
 		resp.Sent[index].DefaultSortingOrderPosition = index
 	}
-	Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully mark llm resp by default sort for userId [%s]", userId)
 	return resp
 }
 
 //return lastOnlineText, lastOnlineFlag
 func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, sourceLocale string, lc *lambdacontext.LambdaContext) (string, string) {
-	Anlogger.Debugf(lc, "service_common.go : transform lastOnlineTime [%v] to status texts for userId [%s]", lastOnlineTime, userId)
+	//Anlogger.Debugf(lc, "service_common.go : transform lastOnlineTime [%v] to status texts for userId [%s]", lastOnlineTime, userId)
 	var lastOnlineText, lastOnlineFlag string
 	currTime := commons.UnixTimeInMillis()
 	diff := currTime - lastOnlineTime
 
-	Anlogger.Debugf(lc, "service_common.go : diff is [%v] for userId [%s]", diff, userId)
+	//Anlogger.Debugf(lc, "service_common.go : diff is [%v] for userId [%s]", diff, userId)
 
 	if lastOnlineTime <= 0 {
 		lastOnlineText = "unknown"
@@ -335,20 +335,20 @@ func TransformLastOnlineTimeIntoStatusText(userId string, lastOnlineTime int64, 
 		}
 	}
 
-	Anlogger.Debugf(lc, "service_common.go : successfully transform lastOnlineTime [%v] to lastOnlineText [%s] and  lastOnlineFlag [%s] for userId [%s]", lastOnlineTime, lastOnlineText, lastOnlineFlag, userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully transform lastOnlineTime [%v] to lastOnlineText [%s] and  lastOnlineFlag [%s] for userId [%s]", lastOnlineTime, lastOnlineText, lastOnlineFlag, userId)
 	return lastOnlineText, lastOnlineFlag
 }
 
 //return distanceText
 func TransformDistanceInDistanceText(userId string, internal commons.InternalProfiles, lc *lambdacontext.LambdaContext) (string) {
-	Anlogger.Debugf(lc, "service_common.go : transform request [%v] to distance text for userId [%s]", internal, userId)
+	//Anlogger.Debugf(lc, "service_common.go : transform request [%v] to distance text for userId [%s]", internal, userId)
 	var distanceText string
 	if !internal.LocationExist {
-		Anlogger.Debugf(lc, "service_common.go : one of the coordinates < 0, so set unknown distance text")
+		//Anlogger.Debugf(lc, "service_common.go : one of the coordinates < 0, so set unknown distance text")
 		distanceText = "unknown"
 	} else {
 		distance := Distance(Point(internal.Lat, internal.Lon), Point(internal.SourceLat, internal.SourceLon))
-		Anlogger.Debugf(lc, "service_common.go : distance is [%v]", distance)
+		//Anlogger.Debugf(lc, "service_common.go : distance is [%v]", distance)
 		if distance <= 1000 {
 			distanceText = "1 "
 		} else if distance > 1000 {
@@ -364,6 +364,6 @@ func TransformDistanceInDistanceText(userId string, internal commons.InternalPro
 		distanceText = fmt.Sprintf("%s%s", distanceText, localKm)
 	}
 
-	Anlogger.Debugf(lc, "service_common.go : successfully transform request [%v] to distance text [%s] for userId [%s]", internal, distanceText, userId)
+	//Anlogger.Debugf(lc, "service_common.go : successfully transform request [%v] to distance text [%s] for userId [%s]", internal, distanceText, userId)
 	return distanceText
 }

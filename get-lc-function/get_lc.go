@@ -55,8 +55,8 @@ func getLc(request *commons.GetLCRequest, functionName string, lc *lambdacontext
 		return nil, false, commons.InternalServerError
 	}
 
-	apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully got profiles for userId [%s] (function name %s), resp %v",
-		*request.UserId, functionName, response)
+	//apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully got profiles for userId [%s] (function name %s), resp %v",
+	//	*request.UserId, functionName, response)
 	return &response, true, ""
 }
 
@@ -263,12 +263,12 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 	finishTime := commons.UnixTimeInMillis()
 	apimodel.Anlogger.Infof(lc, "get_lc.go : successfully return repeat request after [%v], [%d] likes you profiles and [%d] messages to userId [%s], duration [%v]", feedResp.RepeatRequestAfter, len(feedResp.LikesYou), len(feedResp.Messages), userId, finishTime-startTime)
-	apimodel.Anlogger.Debugf(lc, "get_lc.go : return successful resp [%s] for userId [%s]", string(body), userId)
+	//apimodel.Anlogger.Debugf(lc, "get_lc.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
 func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.GetLCRequest, bool, string) {
-	apimodel.Anlogger.Debugf(lc, "get_lc.go : parse request body %s", params)
+	//apimodel.Anlogger.Debugf(lc, "get_lc.go : parse request body %s", params)
 
 	var req commons.GetLCRequest
 	err := json.Unmarshal([]byte(params), &req)
@@ -336,7 +336,7 @@ func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.GetLC
 	lim := getLcEachFeedMaxLimit
 	req.Limit = &lim
 
-	apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully parse request [%v]", req)
+	//apimodel.Anlogger.Debugf(lc, "get_lc.go : successfully parse request [%v]", req)
 	return &req, true, ""
 }
 

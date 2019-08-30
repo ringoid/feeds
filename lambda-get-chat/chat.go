@@ -147,7 +147,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//commons.SendCloudWatchMetric(apimodel.BaseCloudWatchNamespace, apimodel.NewFaceProfilesReturnMetricName, len(feedResp.Profiles), apimodel.AwsCWClient, apimodel.Anlogger, lc)
 	finishTime := commons.UnixTimeInMillis()
 	apimodel.Anlogger.Infof(lc, "chat.go : successfully return repeat request after [%v], chat to userId [%s] with oppositeUserId [%s], duration [%v]", feedResp.RepeatRequestAfter, userId, feedResp.ProfileChat.UserId, finishTime-startTime)
-	apimodel.Anlogger.Debugf(lc, "chat.go : return successful resp [%s] for userId [%s]", string(body), userId)
+	//apimodel.Anlogger.Debugf(lc, "chat.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
 
@@ -192,7 +192,7 @@ func getChat(userId, oppositeUserId string, lastActionTime int64, resolution str
 		return commons.InternalChatResponse{}, apimodel.DefaultRepeatTimeSec, true, ""
 	}
 
-	apimodel.Anlogger.Debugf(lc, "chat.go : successfully got chat for userId [%s] and oppositeUserId [%s], resp %v", userId, oppositeUserId, response)
+	//apimodel.Anlogger.Debugf(lc, "chat.go : successfully got chat for userId [%s] and oppositeUserId [%s], resp %v", userId, oppositeUserId, response)
 	return response, 0, true, ""
 }
 
