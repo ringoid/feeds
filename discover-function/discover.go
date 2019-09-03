@@ -238,7 +238,7 @@ func parseParams(params string, lc *lambdacontext.LambdaContext) (*commons.Disco
 
 //return minAge, maxAge, maxDistance
 func filterString(req *commons.DiscoverRequest) (int, int, int) {
-	var minA, maxA, maxD = 18, 56, 15001
+	var minA, maxA, maxD = 18, 56, 150001
 	if req.Filter == nil {
 		return minA, maxA, maxD
 	}
