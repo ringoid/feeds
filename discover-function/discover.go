@@ -25,6 +25,8 @@ func init() {
 func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 
+	start := commons.UnixTimeInMillis()
+
 	userAgent := request.Headers["user-agent"]
 	if strings.HasPrefix(userAgent, "ELB-HealthChecker") {
 		return commons.NewServiceResponse("{}"), nil
@@ -155,10 +157,13 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//	}
 	//}
 	minA, maxA, maxD := filterString(reqParam)
-	event := commons.NewProfileWasReturnToDiscoverEvent(userId, sourceIp, len(targetIds), minA, maxA, maxD, feedResp.RepeatRequestAfter)
+
+	execTime := commons.UnixTimeInMillis() - start
+	event := commons.NewProfileWasReturnToDiscoverEvent(userId, sourceIp, len(targetIds), minA, maxA, maxD, feedResp.RepeatRequestAfter, execTime)
 	commons.SendAnalyticEvent(event, userId, apimodel.DeliveryStreamName, apimodel.AwsDeliveryStreamClient, apimodel.Anlogger, lc)
+
 	apimodel.Anlogger.Infof(lc, "discover.go : successfully return repeat request after [%v], [%d] new faces profiles to userId [%s], minAge [%d], maxAge [%d], maxDistance [%d], duration [%v]",
-		feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, minA, maxA, maxD, 0)
+		feedResp.RepeatRequestAfter, len(feedResp.Profiles), userId, minA, maxA, maxD, execTime)
 	//apimodel.Anlogger.Debugf(lc, "discover.go : return successful resp [%s] for userId [%s]", string(body), userId)
 	return commons.NewServiceResponse(string(body)), nil
 }
