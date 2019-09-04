@@ -146,6 +146,7 @@ func handleJob(request *commons.GetLCRequest, isItLikes bool,
 			WhereLive:      each.WhereLive,
 			WhereFrom:      each.WhereFrom,
 			StatusText:     each.StatusText,
+			TotalLikes:     each.TotalLikes,
 		}
 
 		profile = apimodel.CheckProfileBeforeResponse(*request.UserId, profile)

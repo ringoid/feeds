@@ -128,6 +128,7 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 		WhereLive:      internalChat.Profile.WhereLive,
 		WhereFrom:      internalChat.Profile.WhereFrom,
 		StatusText:     internalChat.Profile.StatusText,
+		TotalLikes:     internalChat.Profile.TotalLikes,
 	}
 
 	profile = apimodel.CheckProfileBeforeResponse(userId, profile)
