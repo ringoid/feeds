@@ -90,10 +90,6 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 			ThumbnailPhotoUri: eachPhoto.ThumbnailLink,
 		})
 	}
-	if len(photos) == 0 {
-		apimodel.Anlogger.Warnf(lc, "chat.go : get chat return user [%s] with empty photo list for resolution [%s] for userId [%s]",
-			oppositeUserId, resolution, userId)
-	}
 
 	msgs := make([]commons.Message, 0)
 	for _, eachMsg := range internalChat.Profile.Messages {
