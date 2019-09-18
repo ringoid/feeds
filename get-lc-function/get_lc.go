@@ -252,6 +252,9 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	//mark sorting
 	apimodel.MarkLCDefaultSort(userId, &feedResp, lc)
 
+	//todo:delete after all
+	//apimodel.MarkLCAllMessagesHaveBeenRead(&feedResp, lc)
+
 	body, err := json.Marshal(feedResp)
 	if err != nil {
 		apimodel.Anlogger.Errorf(lc, "get_lc.go : error while marshaling resp [%v] object for userId [%s] : %v", feedResp, userId, err)

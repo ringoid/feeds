@@ -129,6 +129,9 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 
 	profile = apimodel.CheckProfileBeforeResponse(userId, profile)
 
+	//todo:delete after all
+	//apimodel.MarkAllMessagesInAChatHaveBeenRead(&feedResp)
+
 	feedResp.ProfileChat = profile
 	feedResp.PullAgainAfter = apimodel.DefaultPoolRepeatTimeSec
 

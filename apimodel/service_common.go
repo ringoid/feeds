@@ -255,6 +255,27 @@ func MarkLCDefaultSort(userId string, resp *GetLcFeedResp, lc *lambdacontext.Lam
 	return resp
 }
 
+func MarkLCAllMessagesHaveBeenRead(resp *GetLcFeedResp, lc *lambdacontext.LambdaContext) *GetLcFeedResp {
+	for index := range resp.LikesYou {
+		for msgIndex := range resp.LikesYou[index].Messages {
+			resp.LikesYou[index].Messages[msgIndex].HaveBeenRead = true
+		}
+	}
+	for index := range resp.Messages {
+		for msgIndex := range resp.LikesYou[index].Messages {
+			resp.LikesYou[index].Messages[msgIndex].HaveBeenRead = true
+		}
+	}
+	return resp
+}
+
+func MarkAllMessagesInAChatHaveBeenRead(resp *ChatFeedResponse) *ChatFeedResponse {
+	for index := range resp.ProfileChat.Messages {
+		resp.ProfileChat.Messages[index].HaveBeenRead = true
+	}
+	return resp
+}
+
 func MarkLMHISDefaultSort(userId string, resp *LMHISFeedResp, lc *lambdacontext.LambdaContext) *LMHISFeedResp {
 	//Anlogger.Debugf(lc, "service_common.go : mark lmhis resp by default sort for userId [%s]", userId)
 	for index := range resp.LikesYou {
