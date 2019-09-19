@@ -63,7 +63,7 @@ func InitLambdaVars(lambdaName string) {
 	}
 	fmt.Printf("lambda-initialization : service_common.go : start with PAPERTRAIL_LOG_ADDRESS = [%s]\n", papertrailAddress)
 
-	Anlogger, err = commons.New(papertrailAddress, fmt.Sprintf("%s-%s", Env, lambdaName))
+	Anlogger, err = commons.New(papertrailAddress, fmt.Sprintf("%s-%s", Env, lambdaName), IsDebugLogEnabled)
 	if err != nil {
 		fmt.Errorf("lambda-initialization : service_common.go : error during startup : %v\n", err)
 		os.Exit(1)

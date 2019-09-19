@@ -8,6 +8,7 @@ import (
 const (
 	DefaultRepeatTimeSec     = int64(800)
 	DefaultPoolRepeatTimeSec = int64(3000)
+	IsDebugLogEnabled        = false
 )
 
 type GetNewFacesFeedResp struct {
