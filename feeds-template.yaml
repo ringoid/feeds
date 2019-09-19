@@ -66,6 +66,16 @@ Mappings:
       stage: stage-get-lc-feeds-tg
       prod: prod-get-lc-feeds-tg
 
+  CloudFrontNamesMap:
+    BasePublicPhotoDomainName:
+      test: test-ringoid-public-photo.s3.amazonaws.com
+      stage: stage-ringoid-public-photo.s3.amazonaws.com
+      prod: prod-ringoid-public-photo.s3.amazonaws.com
+    BasePublicPhotoDomainIds:
+      test: s3-origin-test-ringoid-public-photo
+      stage: s3-origin-stage-ringoid-public-photo
+      prod: s3-origin-prod-ringoid-public-photo
+
 Parameters:
   Env:
     Type: String
@@ -146,12 +156,42 @@ Globals:
             CLOUD_WATCH_LIKES_YOU_RETURN: !Ref CloudWatchLikesYouProfilesReturnMetricName
             CLOUD_WATCH_NEW_FACES_RETURN: !Ref CloudWatchNewFaceProfilesReturnMetricName
             BASE_CLOUD_WATCH_NAMESPACE: !Join [ "-", [ !Ref Env, feeds, service] ]
+            CLOUDFRONT_DISTRIBUTION_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+            USE_CLOUDFRONT: true
+
         Tags:
           Company: Ringoid
           Service: feeds
           Environment: !Ref Env
 
 Resources:
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - 'HEAD'
+            - 'GET'
+          CachedMethods:
+            - 'HEAD'
+            - 'GET'
+          Compress: false
+          ForwardedValues:
+            Cookies:
+              Forward: 'none'
+            Headers:
+              - 'Origin'
+            QueryString: false
+          TargetOriginId: !FindInMap [CloudFrontNamesMap, BasePublicPhotoDomainIds, !Ref Env]
+          ViewerProtocolPolicy: 'redirect-to-https'
+        Enabled: true
+        Origins:
+          - DomainName: !FindInMap [CloudFrontNamesMap, BasePublicPhotoDomainName, !Ref Env]
+            Id: !FindInMap [CloudFrontNamesMap, BasePublicPhotoDomainIds, !Ref Env]
+            S3OriginConfig: {}
+        PriceClass: 'PriceClass_All'
 
   GetNewFacesFunction:
     Type: AWS::Serverless::Function

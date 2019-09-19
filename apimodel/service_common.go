@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"strings"
+	"strconv"
 )
 
 var Anlogger *commons.Logger
@@ -40,6 +41,9 @@ var MessageProfilesReturnMetricName string
 
 var AwsCWClient *cloudwatch.CloudWatch
 var Env string
+
+var CloudFrontDomain string
+var UseCloudFront bool
 
 var userIdStatusEnabledMap map[string]bool
 
@@ -177,6 +181,23 @@ func InitLambdaVars(lambdaName string) {
 		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUD_WATCH_MESSAGES_RETURN")
 	}
 	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUD_WATCH_MESSAGES_RETURN = [%s]", MessageProfilesReturnMetricName)
+
+	CloudFrontDomain, ok = os.LookupEnv("CLOUDFRONT_DISTRIBUTION_DOMAIN")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty CLOUDFRONT_DISTRIBUTION_DOMAIN")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with CLOUDFRONT_DISTRIBUTION_DOMAIN = [%s]", CloudFrontDomain)
+
+	cloudFrontEnabled, ok := os.LookupEnv("USE_CLOUDFRONT")
+	if !ok {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : env can not be empty USE_CLOUDFRONT")
+	}
+	Anlogger.Debugf(nil, "lambda-initialization : service_common.go : start with USE_CLOUDFRONT = [%s]", cloudFrontEnabled)
+	b, err := strconv.ParseBool(cloudFrontEnabled)
+	if err != nil {
+		Anlogger.Fatalf(nil, "lambda-initialization : service_common.go : error parse USE_CLOUDFRONT to bool : %v", err)
+	}
+	UseCloudFront = b
 
 	awsSession, err = session.NewSession(aws.NewConfig().
 		WithRegion(commons.Region).WithMaxRetries(commons.MaxRetries).

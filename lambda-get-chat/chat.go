@@ -86,8 +86,8 @@ func handler(ctx context.Context, request events.ALBTargetGroupRequest) (events.
 	for _, eachPhoto := range internalChat.Profile.Photos {
 		photos = append(photos, commons.Photo{
 			PhotoId:           eachPhoto.ResizedPhotoId,
-			PhotoUri:          eachPhoto.Link,
-			ThumbnailPhotoUri: eachPhoto.ThumbnailLink,
+			PhotoUri:          commons.ReplacePhotoUriUsingCloudfrontIfNeeded(eachPhoto.Link, apimodel.CloudFrontDomain, apimodel.Env, apimodel.UseCloudFront),
+			ThumbnailPhotoUri: commons.ReplacePhotoUriUsingCloudfrontIfNeeded(eachPhoto.ThumbnailLink, apimodel.CloudFrontDomain, apimodel.Env, apimodel.UseCloudFront),
 		})
 	}
 

@@ -100,8 +100,8 @@ func handleJob(request *commons.GetLCRequest, isItLikes bool,
 		for _, eachPhoto := range each.Photos {
 			photos = append(photos, commons.Photo{
 				PhotoId:           eachPhoto.ResizedPhotoId,
-				PhotoUri:          eachPhoto.Link,
-				ThumbnailPhotoUri: eachPhoto.ThumbnailLink,
+				PhotoUri:          commons.ReplacePhotoUriUsingCloudfrontIfNeeded(eachPhoto.Link, apimodel.CloudFrontDomain, apimodel.Env, apimodel.UseCloudFront),
+				ThumbnailPhotoUri: commons.ReplacePhotoUriUsingCloudfrontIfNeeded(eachPhoto.ThumbnailLink, apimodel.CloudFrontDomain, apimodel.Env, apimodel.UseCloudFront),
 			})
 		}
 
